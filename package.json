@@ -23,7 +23,9 @@
     "test:manual:delete-note": "tsx tests/manual/delete-note.test.ts",
     "test:manual:delete-folder": "tsx tests/manual/delete-folder.test.ts",
     "test:manual:list-notebooks": "tsx tests/manual/list-notebooks.test.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "keywords": [
     "mcp",
@@ -40,6 +42,7 @@
   "devDependencies": {
     "@types/node": "^22.15.21",
     "@vitest/ui": "^3.1.4",
+    "prettier": "^3.5.3",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3",
     "vitest": "^3.1.4"

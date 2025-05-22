@@ -9,12 +9,12 @@ This is a Node.js MCP (Model Context Protocol) server for Joplin note-taking app
 ## Key Commands
 
 - **Start server locally**: `npm start`
-- **Start via npx**: 
+- **Start via npx**:
   - `npx joplin-mcp-server --port 41184 --token your_token`
   - `npx joplin-mcp-server --env-file /path/to/.env`
 - **Get help**: `npx joplin-mcp-server --help`
 - **Run tests**: `npm test` (requires `.env.test.local` with test configuration)
-- **Individual tool tests**: 
+- **Individual tool tests**:
   - `npm run test:search`
   - `npm run test:read-notebook`
   - `npm run test:read-note`
@@ -32,6 +32,7 @@ This is a Node.js MCP (Model Context Protocol) server for Joplin note-taking app
 ### Tool Pattern
 
 Each tool follows a consistent pattern:
+
 - Import and extend from the base tool class
 - Implement a `call()` method that takes parameters and returns formatted text
 - Use the JoplinAPIClient to make API requests
@@ -40,6 +41,7 @@ Each tool follows a consistent pattern:
 ### Environment Configuration
 
 Requires two environment variables:
+
 - `JOPLIN_PORT`: Port where Joplin is running (default 41184)
 - `JOPLIN_TOKEN`: API token from Joplin's Web Clipper settings
 

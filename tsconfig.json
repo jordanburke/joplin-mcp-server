@@ -30,15 +30,8 @@
       "@/*": ["./*"]
     }
   },
-  "include": [
-    "**/*.ts",
-    "**/*.js"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "logs"
-  ],
+  "include": ["**/*.ts", "**/*.js"],
+  "exclude": ["node_modules", "dist", "logs"],
   "ts-node": {
     "esm": true
   }

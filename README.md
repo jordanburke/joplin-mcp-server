@@ -64,37 +64,30 @@ OPTIONS:
 ### MCP Client Configuration
 
 Usage in Augment Code:
+
 ```
 name: joplin
 command: npx joplin-mcp-server --port 41184 --token your_token
 ```
 
 Usage in mcp.json (Cursor and other tools):
+
 ```json
 {
   "joplin": {
     "command": "npx",
-    "args": [
-      "joplin-mcp-server",
-      "--port",
-      "41184",
-      "--token",
-      "your_joplin_token"
-    ]
+    "args": ["joplin-mcp-server", "--port", "41184", "--token", "your_joplin_token"]
   }
 }
 ```
 
 Or using environment file:
+
 ```json
 {
   "joplin": {
     "command": "npx",
-    "args": [
-      "joplin-mcp-server",
-      "--env-file",
-      "/path/to/your/.env"
-    ]
+    "args": ["joplin-mcp-server", "--env-file", "/path/to/your/.env"]
   }
 }
 ```
@@ -106,6 +99,7 @@ name: `joplin`
 command: `node /path/to/your/mcp-joplin/index.js --env-file /path/to/your/mcp-joplin/.env`
 
 Usage in mcp.json (cursor other tools)
+
 ```json
   "joplin":{
       "command":"node",
@@ -116,8 +110,6 @@ Usage in mcp.json (cursor other tools)
       ]
   }
 ```
-
-
 
 ### Logging
 
@@ -133,6 +125,7 @@ LOG_LEVEL=debug npm start
 ```
 
 Available log levels (from most to least verbose):
+
 - `debug`: All messages including detailed command and response data
 - `info`: Standard operational messages (default)
 - `warn`: Warnings and errors only
@@ -157,6 +150,7 @@ Notebook 2 (id: "jkl012")
 Searches for notes in Joplin and returns matching notebooks.
 
 **Parameters:**
+
 - `query`: The search query string
 
 ```
@@ -187,6 +181,7 @@ NOTE: To read a notebook, use the notebook ID (not the note title)
 Reads the contents of a specific notebook.
 
 **Parameters:**
+
 - `notebook_id`: The ID of the notebook to read
 
 ```
@@ -215,6 +210,7 @@ NOTE: This is showing the contents of notebook "Work", not a specific note.
 Reads the full content of a specific note.
 
 **Parameters:**
+
 - `note_id`: The ID of the note to read
 
 ```
@@ -257,6 +253,7 @@ Related commands:
 Reads the full content of multiple notes at once.
 
 **Parameters:**
+
 - `note_ids`: An array of note IDs to read
 
 ```
