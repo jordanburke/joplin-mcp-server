@@ -16,6 +16,9 @@
     "test:coverage": "vitest --coverage",
     "test:manual:search": "tsx tests/manual/search-notes.test.ts",
     "test:manual:read-note": "tsx tests/manual/read-note.test.ts",
+    "test:manual:create-note": "tsx tests/manual/create-note.test.ts",
+    "test:manual:create-folder": "tsx tests/manual/create-folder.test.ts",
+    "test:manual:list-notebooks": "tsx tests/manual/list-notebooks.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [

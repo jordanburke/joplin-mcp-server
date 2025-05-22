@@ -10,7 +10,7 @@ import logger from './lib/logger.js';
 
 import parseArgs from './lib/parse-args.js';
 import JoplinAPIClient from './lib/joplin-api-client.js';
-import { ListNotebooks, SearchNotes, ReadNotebook, ReadNote, ReadMultiNote } from './lib/tools/index.js';
+import { ListNotebooks, SearchNotes, ReadNotebook, ReadNote, ReadMultiNote, CreateNote, CreateFolder } from './lib/tools/index.js';
 
 // Parse command line arguments
 parseArgs();
@@ -98,6 +98,49 @@ server.tool(
   { note_ids: z.array(z.string()) },
   async ({ note_ids }: { note_ids: string[] }) => {
     const result = await new ReadMultiNote(apiClient).call(note_ids);
+    return {
+      content: [{ type: 'text', text: result }]
+    };
+  }
+);
+
+// Register the create_note tool
+server.tool(
+  'create_note',
+  'Create a new note in Joplin',
+  { 
+    title: z.string().optional(),
+    body: z.string().optional(),
+    body_html: z.string().optional(),
+    parent_id: z.string().optional(),
+    is_todo: z.boolean().optional(),
+    image_data_url: z.string().optional()
+  },
+  async (params: { 
+    title?: string | undefined; 
+    body?: string | undefined; 
+    body_html?: string | undefined; 
+    parent_id?: string | undefined; 
+    is_todo?: boolean | undefined; 
+    image_data_url?: string | undefined; 
+  }) => {
+    const result = await new CreateNote(apiClient).call(params);
+    return {
+      content: [{ type: 'text', text: result }]
+    };
+  }
+);
+
+// Register the create_folder tool
+server.tool(
+  'create_folder',
+  'Create a new folder/notebook in Joplin',
+  { 
+    title: z.string(),
+    parent_id: z.string().optional()
+  },
+  async (params: { title: string; parent_id?: string | undefined }) => {
+    const result = await new CreateFolder(apiClient).call(params);
     return {
       content: [{ type: 'text', text: result }]
     };
