@@ -7,7 +7,7 @@
     "esModuleInterop": true,
     "allowJs": true,
     "checkJs": false,
-    "declaration": false,
+    "declaration": true,
     "strict": true,
     "noImplicitAny": true,
     "strictNullChecks": true,

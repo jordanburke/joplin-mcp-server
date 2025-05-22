@@ -2,14 +2,17 @@
   "name": "joplin-mcp-server",
   "version": "1.0.0",
   "description": "MCP server for Joplin",
-  "main": "index.ts",
+  "main": "dist/index.js",
   "type": "module",
   "bin": {
-    "joplin-mcp-server": "./bin/cli.js"
+    "joplin-mcp-server": "./dist/bin/cli.js"
   },
   "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build",
     "start": "tsx index.ts",
-    "start:js": "node index.js",
+    "start:js": "node dist/index.js",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
@@ -30,6 +33,11 @@
   "keywords": [
     "mcp",
     "joplin"
+  ],
+  "files": [
+    "dist/**/*",
+    "README.md",
+    "LICENSE"
   ],
   "author": "Jordan Burke <jordan.burke@gmail.com>",
   "license": "MIT",

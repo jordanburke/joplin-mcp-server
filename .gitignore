@@ -11,6 +11,8 @@ package-lock.json
 logs/
 *.log
 
+dist/
+
 **/.claude/settings.local.json
 
 .idea/

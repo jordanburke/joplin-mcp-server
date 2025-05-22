@@ -1,0 +1,21 @@
+# Source files
+*.ts
+!*.d.ts
+tsconfig.json
+vitest.config.ts
+vitest.setup.ts
+
+# Development
+tests/
+logs/
+.env*
+*.log
+
+# Build artifacts
+node_modules/
+.DS_Store
+*.tsbuildinfo
+
+# Development tools
+prettier.config.*
+eslint.config.*
