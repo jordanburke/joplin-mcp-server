@@ -10,7 +10,7 @@ import logger from './lib/logger.js';
 
 import parseArgs from './lib/parse-args.js';
 import JoplinAPIClient from './lib/joplin-api-client.js';
-import { ListNotebooks, SearchNotes, ReadNotebook, ReadNote, ReadMultiNote, CreateNote, CreateFolder } from './lib/tools/index.js';
+import { ListNotebooks, SearchNotes, ReadNotebook, ReadNote, ReadMultiNote, CreateNote, CreateFolder, EditNote, EditFolder } from './lib/tools/index.js';
 
 // Parse command line arguments
 parseArgs();
@@ -141,6 +141,54 @@ server.tool(
   },
   async (params: { title: string; parent_id?: string | undefined }) => {
     const result = await new CreateFolder(apiClient).call(params);
+    return {
+      content: [{ type: 'text', text: result }]
+    };
+  }
+);
+
+// Register the edit_note tool
+server.tool(
+  'edit_note',
+  'Edit/update an existing note in Joplin',
+  { 
+    note_id: z.string(),
+    title: z.string().optional(),
+    body: z.string().optional(),
+    body_html: z.string().optional(),
+    parent_id: z.string().optional(),
+    is_todo: z.boolean().optional(),
+    todo_completed: z.boolean().optional(),
+    todo_due: z.number().optional()
+  },
+  async (params: { 
+    note_id: string;
+    title?: string | undefined; 
+    body?: string | undefined; 
+    body_html?: string | undefined; 
+    parent_id?: string | undefined; 
+    is_todo?: boolean | undefined; 
+    todo_completed?: boolean | undefined;
+    todo_due?: number | undefined;
+  }) => {
+    const result = await new EditNote(apiClient).call(params);
+    return {
+      content: [{ type: 'text', text: result }]
+    };
+  }
+);
+
+// Register the edit_folder tool
+server.tool(
+  'edit_folder',
+  'Edit/update an existing folder/notebook in Joplin',
+  { 
+    folder_id: z.string(),
+    title: z.string().optional(),
+    parent_id: z.string().optional()
+  },
+  async (params: { folder_id: string; title?: string | undefined; parent_id?: string | undefined }) => {
+    const result = await new EditFolder(apiClient).call(params);
     return {
       content: [{ type: 'text', text: result }]
     };

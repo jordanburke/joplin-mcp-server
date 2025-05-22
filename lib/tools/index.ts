@@ -5,6 +5,8 @@ import ReadNote from './read-note.js';
 import ReadMultiNote from './read-multi-note.js';
 import CreateNote from './create-note.js';
 import CreateFolder from './create-folder.js';
+import EditNote from './edit-note.js';
+import EditFolder from './edit-folder.js';
 
 export {
   ListNotebooks,
@@ -13,5 +15,7 @@ export {
   ReadNote,
   ReadMultiNote,
   CreateNote,
-  CreateFolder
+  CreateFolder,
+  EditNote,
+  EditFolder
 };
