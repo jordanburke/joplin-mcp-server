@@ -10,7 +10,7 @@ import logger from './lib/logger.js';
 
 import parseArgs from './lib/parse-args.js';
 import JoplinAPIClient from './lib/joplin-api-client.js';
-import { ListNotebooks, SearchNotes, ReadNotebook, ReadNote, ReadMultiNote, CreateNote, CreateFolder, EditNote, EditFolder } from './lib/tools/index.js';
+import { ListNotebooks, SearchNotes, ReadNotebook, ReadNote, ReadMultiNote, CreateNote, CreateFolder, EditNote, EditFolder, DeleteNote, DeleteFolder } from './lib/tools/index.js';
 
 // Parse command line arguments
 parseArgs();
@@ -189,6 +189,39 @@ server.tool(
   },
   async (params: { folder_id: string; title?: string | undefined; parent_id?: string | undefined }) => {
     const result = await new EditFolder(apiClient).call(params);
+    return {
+      content: [{ type: 'text', text: result }]
+    };
+  }
+);
+
+// Register the delete_note tool
+server.tool(
+  'delete_note',
+  'Delete a note from Joplin (requires confirmation)',
+  { 
+    note_id: z.string(),
+    confirm: z.boolean().optional()
+  },
+  async (params: { note_id: string; confirm?: boolean | undefined }) => {
+    const result = await new DeleteNote(apiClient).call(params);
+    return {
+      content: [{ type: 'text', text: result }]
+    };
+  }
+);
+
+// Register the delete_folder tool
+server.tool(
+  'delete_folder',
+  'Delete a folder/notebook from Joplin (requires confirmation)',
+  { 
+    folder_id: z.string(),
+    confirm: z.boolean().optional(),
+    force: z.boolean().optional()
+  },
+  async (params: { folder_id: string; confirm?: boolean | undefined; force?: boolean | undefined }) => {
+    const result = await new DeleteFolder(apiClient).call(params);
     return {
       content: [{ type: 'text', text: result }]
     };

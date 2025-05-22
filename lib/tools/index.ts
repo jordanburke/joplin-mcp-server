@@ -7,6 +7,8 @@ import CreateNote from './create-note.js';
 import CreateFolder from './create-folder.js';
 import EditNote from './edit-note.js';
 import EditFolder from './edit-folder.js';
+import DeleteNote from './delete-note.js';
+import DeleteFolder from './delete-folder.js';
 
 export {
   ListNotebooks,
@@ -17,5 +19,7 @@ export {
   CreateNote,
   CreateFolder,
   EditNote,
-  EditFolder
+  EditFolder,
+  DeleteNote,
+  DeleteFolder
 };

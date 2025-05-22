@@ -20,6 +20,8 @@
     "test:manual:create-folder": "tsx tests/manual/create-folder.test.ts",
     "test:manual:edit-note": "tsx tests/manual/edit-note.test.ts",
     "test:manual:edit-folder": "tsx tests/manual/edit-folder.test.ts",
+    "test:manual:delete-note": "tsx tests/manual/delete-note.test.ts",
+    "test:manual:delete-folder": "tsx tests/manual/delete-folder.test.ts",
     "test:manual:list-notebooks": "tsx tests/manual/list-notebooks.test.ts",
     "typecheck": "tsc --noEmit"
   },
