@@ -1,0 +1,40 @@
+{
+  "name": "joplin-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for Joplin",
+  "main": "index.ts",
+  "type": "module",
+  "bin": {
+    "joplin-mcp-server": "./bin/cli.js"
+  },
+  "scripts": {
+    "start": "tsx index.ts",
+    "start:js": "node index.js",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:run": "vitest run",
+    "test:coverage": "vitest --coverage",
+    "test:manual:search": "tsx tests/manual/search-notes.test.ts",
+    "test:manual:read-note": "tsx tests/manual/read-note.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "mcp",
+    "joplin"
+  ],
+  "author": "Jordan Burke <jordan.burke@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.8.0",
+    "axios": "^1.6.7",
+    "dotenv": "^16.4.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "@vitest/ui": "^3.1.4",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.4"
+  }
+}

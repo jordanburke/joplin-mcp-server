@@ -1,0 +1,10 @@
+{
+    "joplin": {
+      "command": "npx",
+      "args": [
+        "joplin-mcp-server",
+        "--token",
+        "145b312924cd8b097d0b7e5514c24b70c16c86177ecb63cae7ad4f99c41f32ca361c426f088f20e1277bf94d15761e7863c1fa335679b5235bc51cf1925e3086"
+      ]
+    }
+}
