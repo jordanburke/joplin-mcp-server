@@ -1,6 +1,6 @@
 {
   "name": "joplin-mcp-server",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "MCP server for Joplin",
   "main": "dist/index.js",
   "type": "module",
@@ -42,17 +42,18 @@
   "author": "Jordan Burke <jordan.burke@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.8.0",
-    "axios": "^1.6.7",
-    "dotenv": "^16.4.5",
-    "zod": "^3.23.8"
+    "@modelcontextprotocol/sdk": "^1.13.0",
+    "axios": "^1.10.0",
+    "dotenv": "^16.5.0",
+    "zod": "^3.25.67"
   },
   "devDependencies": {
-    "@types/node": "^22.15.21",
-    "@vitest/ui": "^3.1.4",
+    "@types/node": "^22.15.32",
+    "@vitest/ui": "^3.2.4",
     "prettier": "^3.5.3",
-    "tsx": "^4.19.4",
+    "tsx": "^4.20.3",
     "typescript": "^5.8.3",
-    "vitest": "^3.1.4"
-  }
+    "vitest": "^3.2.4"
+  },
+  "packageManager": "pnpm@10.11.0+sha512.6540583f41cc5f628eb3d9773ecee802f4f9ef9923cc45b69890fb47991d4b092964694ec3a4f738a420c918a333062c8b925d312f42e4f0c263eb603551f977"
 }
