@@ -1,0 +1,24 @@
+# Smithery configuration file: https://smithery.ai/docs/build/project-config
+
+startCommand:
+  type: stdio
+  commandFunction:
+    # A JS function that produces the CLI command based on the given config to start the MCP on stdio.
+    |-
+    (config) => ({ command: 'node', args: ['dist/index.js', '--port', String(config.joplinPort || 41184), '--token', config.joplinToken] })
+  configSchema:
+    # JSON Schema defining the configuration options for the MCP.
+    type: object
+    required:
+      - joplinToken
+    properties:
+      joplinPort:
+        type: number
+        default: 41184
+        description: Port of the Joplin Web Clipper API
+      joplinToken:
+        type: string
+        description: Joplin API token for authentication
+  exampleConfig:
+    joplinPort: 41184
+    joplinToken: your_joplin_token_here
