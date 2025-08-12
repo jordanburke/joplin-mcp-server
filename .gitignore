@@ -13,6 +13,12 @@ logs/
 
 dist/
 
+# Test coverage reports
+coverage/
+
+# Vitest cache
+.vitest-cache/
+
 **/.claude/settings.local.json
 
 .idea/

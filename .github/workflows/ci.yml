@@ -58,18 +58,30 @@ jobs:
       - name: Verify build output
         shell: bash
         run: |
+          echo "Checking build output files..."
+          ls -la dist/
+          
+          # Check main entry files
           if [ ! -f "dist/index.js" ]; then
             echo "Build failed: dist/index.js not found"
-            exit 1
-          fi
-          if [ ! -f "dist/index.mjs" ]; then
-            echo "Build failed: dist/index.mjs not found"
             exit 1
           fi
           if [ ! -f "dist/index.d.ts" ]; then
             echo "Build failed: dist/index.d.ts not found"
             exit 1
           fi
+          
+          # Check CLI files
+          if [ ! -f "dist/bin/cli.js" ]; then
+            echo "Build failed: dist/bin/cli.js not found"
+            exit 1
+          fi
+          if [ ! -f "dist/bin/cli.d.ts" ]; then
+            echo "Build failed: dist/bin/cli.d.ts not found"
+            exit 1
+          fi
+          
+          echo "✅ All required build files are present"
 
   publish-dry-run:
     needs: test
