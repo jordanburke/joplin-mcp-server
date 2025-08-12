@@ -1,4 +1,7 @@
-name: Security
+name: Security Audit
+
+# Note: CodeQL analysis is handled by GitHub's default setup
+# This workflow focuses on dependency auditing only
 
 on:
   push:
@@ -38,29 +41,5 @@ jobs:
         run: npm audit --audit-level moderate
         continue-on-error: true
 
-  codeql:
-    name: CodeQL Analysis
-    runs-on: ubuntu-latest
-    permissions:
-      security-events: write
-      actions: read
-      contents: read
-
-    strategy:
-      fail-fast: false
-      matrix:
-        language: ['javascript-typescript']
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
-        with:
-          languages: ${{ matrix.language }}
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
-        with:
-          category: "/language:${{matrix.language}}"
+  # CodeQL analysis is handled by GitHub's default setup
+  # Custom CodeQL job removed to avoid conflicts
