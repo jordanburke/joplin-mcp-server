@@ -54,76 +54,99 @@ const server = new McpServer({
 })
 
 // Register the list_notebooks tool
-server.tool("list_notebooks", "Retrieve the complete notebook hierarchy from Joplin", {}, async () => {
-  const result = await new ListNotebooks(apiClient).call()
-  return {
-    content: [{ type: "text", text: result }],
+server.registerTool(
+  "list_notebooks",
+  {
+    title: "List Notebooks",
+    description: "Retrieve the complete notebook hierarchy from Joplin",
+    inputSchema: {}
+  },
+  async () => {
+    const result = await new ListNotebooks(apiClient).call()
+    return {
+      content: [{ type: "text", text: result }],
+    }
   }
-})
+)
 
 // Register the search_notes tool
-server.tool(
+server.registerTool(
   "search_notes",
-  "Search for notes in Joplin and return matching notebooks",
-  { query: z.string() },
+  {
+    title: "Search Notes",
+    description: "Search for notes in Joplin and return matching notebooks",
+    inputSchema: { query: z.string() }
+  },
   async ({ query }: { query: string }) => {
     const result = await new SearchNotes(apiClient).call(query)
     return {
       content: [{ type: "text", text: result }],
     }
-  },
+  }
 )
 
 // Register the read_notebook tool
-server.tool(
+server.registerTool(
   "read_notebook",
-  "Read the contents of a specific notebook",
-  { notebook_id: z.string() },
+  {
+    title: "Read Notebook",
+    description: "Read the contents of a specific notebook",
+    inputSchema: { notebook_id: z.string() }
+  },
   async ({ notebook_id }: { notebook_id: string }) => {
     const result = await new ReadNotebook(apiClient).call(notebook_id)
     return {
       content: [{ type: "text", text: result }],
     }
-  },
+  }
 )
 
 // Register the read_note tool
-server.tool(
+server.registerTool(
   "read_note",
-  "Read the full content of a specific note",
-  { note_id: z.string() },
+  {
+    title: "Read Note",
+    description: "Read the full content of a specific note",
+    inputSchema: { note_id: z.string() }
+  },
   async ({ note_id }: { note_id: string }) => {
     const result = await new ReadNote(apiClient).call(note_id)
     return {
       content: [{ type: "text", text: result }],
     }
-  },
+  }
 )
 
 // Register the read_multinote tool
-server.tool(
+server.registerTool(
   "read_multinote",
-  "Read the full content of multiple notes at once",
-  { note_ids: z.array(z.string()) },
+  {
+    title: "Read Multiple Notes",
+    description: "Read the full content of multiple notes at once",
+    inputSchema: { note_ids: z.array(z.string()) }
+  },
   async ({ note_ids }: { note_ids: string[] }) => {
     const result = await new ReadMultiNote(apiClient).call(note_ids)
     return {
       content: [{ type: "text", text: result }],
     }
-  },
+  }
 )
 
 // Register the create_note tool
-server.tool(
+server.registerTool(
   "create_note",
-  "Create a new note in Joplin",
   {
-    title: z.string().optional(),
-    body: z.string().optional(),
-    body_html: z.string().optional(),
-    parent_id: z.string().optional(),
-    is_todo: z.boolean().optional(),
-    image_data_url: z.string().optional(),
+    title: "Create Note",
+    description: "Create a new note in Joplin",
+    inputSchema: {
+      title: z.string().optional(),
+      body: z.string().optional(),
+      body_html: z.string().optional(),
+      parent_id: z.string().optional(),
+      is_todo: z.boolean().optional(),
+      image_data_url: z.string().optional(),
+    }
   },
   async (params: {
     title?: string | undefined
@@ -137,38 +160,44 @@ server.tool(
     return {
       content: [{ type: "text", text: result }],
     }
-  },
+  }
 )
 
 // Register the create_folder tool
-server.tool(
+server.registerTool(
   "create_folder",
-  "Create a new folder/notebook in Joplin",
   {
-    title: z.string(),
-    parent_id: z.string().optional(),
+    title: "Create Folder",
+    description: "Create a new folder/notebook in Joplin",
+    inputSchema: {
+      title: z.string(),
+      parent_id: z.string().optional(),
+    }
   },
   async (params: { title: string; parent_id?: string | undefined }) => {
     const result = await new CreateFolder(apiClient).call(params)
     return {
       content: [{ type: "text", text: result }],
     }
-  },
+  }
 )
 
 // Register the edit_note tool
-server.tool(
+server.registerTool(
   "edit_note",
-  "Edit/update an existing note in Joplin",
   {
-    note_id: z.string(),
-    title: z.string().optional(),
-    body: z.string().optional(),
-    body_html: z.string().optional(),
-    parent_id: z.string().optional(),
-    is_todo: z.boolean().optional(),
-    todo_completed: z.boolean().optional(),
-    todo_due: z.number().optional(),
+    title: "Edit Note",
+    description: "Edit/update an existing note in Joplin",
+    inputSchema: {
+      note_id: z.string(),
+      title: z.string().optional(),
+      body: z.string().optional(),
+      body_html: z.string().optional(),
+      parent_id: z.string().optional(),
+      is_todo: z.boolean().optional(),
+      todo_completed: z.boolean().optional(),
+      todo_due: z.number().optional(),
+    }
   },
   async (params: {
     note_id: string
@@ -184,57 +213,66 @@ server.tool(
     return {
       content: [{ type: "text", text: result }],
     }
-  },
+  }
 )
 
 // Register the edit_folder tool
-server.tool(
+server.registerTool(
   "edit_folder",
-  "Edit/update an existing folder/notebook in Joplin",
   {
-    folder_id: z.string(),
-    title: z.string().optional(),
-    parent_id: z.string().optional(),
+    title: "Edit Folder",
+    description: "Edit/update an existing folder/notebook in Joplin",
+    inputSchema: {
+      folder_id: z.string(),
+      title: z.string().optional(),
+      parent_id: z.string().optional(),
+    }
   },
   async (params: { folder_id: string; title?: string | undefined; parent_id?: string | undefined }) => {
     const result = await new EditFolder(apiClient).call(params)
     return {
       content: [{ type: "text", text: result }],
     }
-  },
+  }
 )
 
 // Register the delete_note tool
-server.tool(
+server.registerTool(
   "delete_note",
-  "Delete a note from Joplin (requires confirmation)",
   {
-    note_id: z.string(),
-    confirm: z.boolean().optional(),
+    title: "Delete Note",
+    description: "Delete a note from Joplin (requires confirmation)",
+    inputSchema: {
+      note_id: z.string(),
+      confirm: z.boolean().optional(),
+    }
   },
   async (params: { note_id: string; confirm?: boolean | undefined }) => {
     const result = await new DeleteNote(apiClient).call(params)
     return {
       content: [{ type: "text", text: result }],
     }
-  },
+  }
 )
 
 // Register the delete_folder tool
-server.tool(
+server.registerTool(
   "delete_folder",
-  "Delete a folder/notebook from Joplin (requires confirmation)",
   {
-    folder_id: z.string(),
-    confirm: z.boolean().optional(),
-    force: z.boolean().optional(),
+    title: "Delete Folder",
+    description: "Delete a folder/notebook from Joplin (requires confirmation)",
+    inputSchema: {
+      folder_id: z.string(),
+      confirm: z.boolean().optional(),
+      force: z.boolean().optional(),
+    }
   },
   async (params: { folder_id: string; confirm?: boolean | undefined; force?: boolean | undefined }) => {
     const result = await new DeleteFolder(apiClient).call(params)
     return {
       content: [{ type: "text", text: result }],
     }
-  },
+  }
 )
 
 // Create logs directory if it doesn't exist
