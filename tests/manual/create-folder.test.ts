@@ -60,8 +60,8 @@ async function testCreateFolder(): Promise<void> {
     console.log("\n📋 Updated notebook hierarchy:")
     const notebooks = await listNotebooks.call()
     console.log(notebooks)
-  } catch (error) {
-    console.error("Error testing create folder:", error)
+  } catch (_error) {
+    console.error("Error testing:", _error)
   }
 }
 

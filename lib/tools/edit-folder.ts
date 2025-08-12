@@ -87,7 +87,7 @@ class EditFolder extends BaseTool {
           if (oldParent?.title) {
             oldParentInfo = `Inside "${oldParent.title}"`
           }
-        } catch (error) {
+        } catch (_error) {
           oldParentInfo = `Parent ID: ${currentFolder.parent_id}`
         }
       }
@@ -100,7 +100,7 @@ class EditFolder extends BaseTool {
           if (newParent?.title) {
             newParentInfo = `Inside "${newParent.title}"`
           }
-        } catch (error) {
+        } catch (_error) {
           newParentInfo = `Parent ID: ${updatedFolder.parent_id}`
         }
       } else if (updatedFolder.parent_id) {

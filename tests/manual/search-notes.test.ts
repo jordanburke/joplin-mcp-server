@@ -39,8 +39,8 @@ async function testSearch(): Promise<void> {
 
     const result = await searchNotes.call(query)
     console.log(result)
-  } catch (error) {
-    console.error("Error testing search:", error)
+  } catch (_error) {
+    console.error("Error testing:", _error)
   }
 }
 

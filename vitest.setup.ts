@@ -11,7 +11,7 @@ beforeAll(() => {
     try {
       dotenv.config({ path: resolve(process.cwd(), envFile) })
       break
-    } catch (error) {
+    } catch (_error) {
       // Continue to next file if current one doesn't exist
     }
   }

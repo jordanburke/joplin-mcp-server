@@ -38,8 +38,8 @@ async function testListNotebooks(): Promise<void> {
 
     const result = await listNotebooks.call()
     console.log(result)
-  } catch (error) {
-    console.error("Error testing list notebooks:", error)
+  } catch (_error) {
+    console.error("Error testing:", _error)
   }
 }
 

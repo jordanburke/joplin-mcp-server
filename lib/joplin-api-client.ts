@@ -28,8 +28,8 @@ class JoplinAPIClient {
     try {
       const response: AxiosResponse<string> = await axios.get(`${this.baseURL}/ping`)
       return response.status === 200 && response.data === "JoplinClipperServer"
-    } catch (error) {
-      process.stderr.write(`Error checking Joplin service availability: ${error}\n`)
+    } catch (_error) {
+      process.stderr.write(`Error checking Joplin service availability: ${_error}\n`)
       return false
     }
   }
@@ -57,9 +57,9 @@ class JoplinAPIClient {
       }
 
       return items
-    } catch (error) {
-      process.stderr.write(`Error in getAllItems for path ${path}: ${error}\n`)
-      throw error
+    } catch (_error) {
+      process.stderr.write(`Error in getAllItems for path ${path}: ${_error}\n`)
+      throw _error
     }
   }
 
@@ -69,9 +69,9 @@ class JoplinAPIClient {
         params: this.requestOptions(options).query,
       })
       return data
-    } catch (error) {
-      process.stderr.write(`Error in GET request for path ${path}: ${error}\n`)
-      throw error
+    } catch (_error) {
+      process.stderr.write(`Error in GET request for path ${path}: ${_error}\n`)
+      throw _error
     }
   }
 
@@ -81,9 +81,9 @@ class JoplinAPIClient {
         params: this.requestOptions(options).query,
       })
       return data
-    } catch (error) {
-      process.stderr.write(`Error in POST request for path ${path}: ${error}\n`)
-      throw error
+    } catch (_error) {
+      process.stderr.write(`Error in POST request for path ${path}: ${_error}\n`)
+      throw _error
     }
   }
 
@@ -93,9 +93,9 @@ class JoplinAPIClient {
         params: this.requestOptions(options).query,
       })
       return data
-    } catch (error) {
-      process.stderr.write(`Error in DELETE request for path ${path}: ${error}\n`)
-      throw error
+    } catch (_error) {
+      process.stderr.write(`Error in DELETE request for path ${path}: ${_error}\n`)
+      throw _error
     }
   }
 
@@ -105,9 +105,9 @@ class JoplinAPIClient {
         params: this.requestOptions(options).query,
       })
       return data
-    } catch (error) {
-      process.stderr.write(`Error in PUT request for path ${path}: ${error}\n`)
-      throw error
+    } catch (_error) {
+      process.stderr.write(`Error in PUT request for path ${path}: ${_error}\n`)
+      throw _error
     }
   }
 

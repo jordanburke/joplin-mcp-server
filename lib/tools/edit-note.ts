@@ -87,7 +87,7 @@ class EditNote extends BaseTool {
           if (oldNotebook?.title) {
             oldNotebookInfo = `"${oldNotebook.title}"`
           }
-        } catch (error) {
+        } catch (_error) {
           oldNotebookInfo = `Notebook ID: ${currentNote.parent_id}`
         }
       }
@@ -100,7 +100,7 @@ class EditNote extends BaseTool {
           if (newNotebook?.title) {
             newNotebookInfo = `"${newNotebook.title}"`
           }
-        } catch (error) {
+        } catch (_error) {
           newNotebookInfo = `Notebook ID: ${updatedNote.parent_id}`
         }
       } else if (updatedNote.parent_id) {

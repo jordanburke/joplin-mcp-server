@@ -62,8 +62,8 @@ async function testCreateNote(): Promise<void> {
     console.log("\n📋 Available notebooks:")
     const notebooks = await listNotebooks.call()
     console.log(notebooks)
-  } catch (error) {
-    console.error("Error testing create note:", error)
+  } catch (_error) {
+    console.error("Error testing:", _error)
   }
 }
 

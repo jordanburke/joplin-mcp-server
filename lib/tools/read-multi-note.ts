@@ -52,8 +52,8 @@ class ReadMultiNote extends BaseTool {
             if (notebook && notebook.title) {
               notebookInfo = `"${notebook.title}" (notebook_id: "${note.parent_id}")`
             }
-          } catch (error) {
-            process.stderr.write(`Error fetching notebook info for note ${noteId}: ${error}\n`)
+          } catch (_error) {
+            process.stderr.write(`Error fetching notebook info for note ${noteId}: ${_error}\n`)
             // Continue even if we can't get the notebook info
           }
         }
@@ -91,14 +91,14 @@ class ReadMultiNote extends BaseTool {
 
         // Add a separator after the note
         resultLines.push("\n---\n")
-      } catch (error: any) {
-        process.stderr.write(`Error reading note ${noteId}: ${error}\n`)
-        if (error.response && error.response.status === 404) {
+      } catch (_error: any) {
+        process.stderr.write(`Error reading note ${noteId}: ${_error}\n`)
+        if (_error.response && _error.response.status === 404) {
           notFound.push(noteId)
           resultLines.push(`Note with ID "${noteId}" not found.\n`)
         } else {
           errors.push(noteId)
-          resultLines.push(`Error reading note: ${error.message || "Unknown error"}\n`)
+          resultLines.push(`Error reading note: ${_error.message || "Unknown error"}\n`)
         }
       }
     }

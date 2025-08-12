@@ -50,8 +50,8 @@ async function testReadNote(): Promise<void> {
     console.log(`Reading note with ID: "${noteId}"`)
     const result = await readNote.call(noteId)
     console.log(result)
-  } catch (error) {
-    console.error("Error testing read note:", error)
+  } catch (_error) {
+    console.error("Error testing:", _error)
   }
 }
 

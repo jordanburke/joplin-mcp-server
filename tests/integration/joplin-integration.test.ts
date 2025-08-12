@@ -26,7 +26,7 @@ describe("Joplin Integration Tests", () => {
         console.warn("Skipping integration tests: Joplin service not available")
         skipTests = true
       }
-    } catch (error) {
+    } catch (_error) {
       console.warn("Skipping integration tests: Cannot connect to Joplin")
       skipTests = true
     }

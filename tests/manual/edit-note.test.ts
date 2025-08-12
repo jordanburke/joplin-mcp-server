@@ -91,8 +91,8 @@ async function testEditNote(): Promise<void> {
 
     const result = await editNote.call(editOptions)
     console.log(result)
-  } catch (error) {
-    console.error("Error testing edit note:", error)
+  } catch (_error) {
+    console.error("Error testing:", _error)
   }
 }
 

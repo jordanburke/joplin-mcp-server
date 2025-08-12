@@ -113,7 +113,7 @@ class DeleteFolder extends BaseTool {
           if (parentFolder?.title) {
             parentInfo = `Inside "${parentFolder.title}" (notebook_id: "${folderToDelete.parent_id}")`
           }
-        } catch (error) {
+        } catch (_error) {
           parentInfo = `Parent ID: ${folderToDelete.parent_id}`
         }
       }

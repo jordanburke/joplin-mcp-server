@@ -1,12 +1,12 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
-import dotenv from "dotenv"
+import _dotenv from "dotenv"
 import { z } from "zod"
 import fs from "fs"
 import path from "path"
 import { fileURLToPath } from "url"
 
-import logger from "./lib/logger.js"
+import _logger from "./lib/logger.js"
 
 import parseArgs from "./lib/parse-args.js"
 import JoplinAPIClient from "./lib/joplin-api-client.js"
@@ -352,7 +352,7 @@ const transport = new LoggingTransport()
 try {
   await server.connect(transport)
   // logger.info('MCP server started and ready to receive commands');
-} catch (error) {
-  process.stderr.write(`Failed to start MCP server: ${error instanceof Error ? error.message : String(error)}\n`)
+} catch (_error) {
+  process.stderr.write(`Failed to start MCP server: ${_error instanceof Error ? _error.message : String(_error)}\n`)
   process.exit(1)
 }

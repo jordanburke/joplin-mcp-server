@@ -90,8 +90,8 @@ async function testDeleteFolder(): Promise<void> {
       const updatedNotebooks = await listNotebooks.call()
       console.log(updatedNotebooks)
     }
-  } catch (error) {
-    console.error("Error testing delete folder:", error)
+  } catch (_error) {
+    console.error("Error testing:", _error)
   }
 }
 

@@ -58,7 +58,7 @@ class CreateNote extends BaseTool {
           if (notebook && notebook.title) {
             notebookInfo = `"${notebook.title}" (notebook_id: "${createdNote.parent_id}")`
           }
-        } catch (error) {
+        } catch (_error) {
           // Continue even if we can't get notebook info
           notebookInfo = `Notebook ID: ${createdNote.parent_id}`
         }

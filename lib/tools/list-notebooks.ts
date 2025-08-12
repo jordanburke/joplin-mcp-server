@@ -33,8 +33,8 @@ class ListNotebooks extends BaseTool {
       )
 
       return resultLines.join("")
-    } catch (error) {
-      return this.formatError(error, "listing notebooks")
+    } catch (_error) {
+      return this.formatError(_error, "listing notebooks")
     }
   }
 

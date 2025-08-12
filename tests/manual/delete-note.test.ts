@@ -79,8 +79,8 @@ async function testDeleteNote(): Promise<void> {
       console.log(`tsx tests/manual/delete-note.test.ts ${noteId} confirm`)
       console.log("\n⚠️  WARNING: This will permanently delete the note!")
     }
-  } catch (error) {
-    console.error("Error testing delete note:", error)
+  } catch (_error) {
+    console.error("Error testing:", _error)
   }
 }
 

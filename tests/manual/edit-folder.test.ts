@@ -86,8 +86,8 @@ async function testEditFolder(): Promise<void> {
     console.log("\n📋 Updated notebook hierarchy:")
     const updatedNotebooks = await listNotebooks.call()
     console.log(updatedNotebooks)
-  } catch (error) {
-    console.error("Error testing edit folder:", error)
+  } catch (_error) {
+    console.error("Error testing:", _error)
   }
 }
 
