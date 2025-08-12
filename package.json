@@ -3,20 +3,27 @@
   "version": "1.0.1",
   "description": "MCP server for Joplin",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "type": "module",
   "bin": {
     "joplin-mcp-server": "./dist/bin/cli.js"
   },
   "scripts": {
-    "build": "tsc",
-    "clean": "rm -rf dist",
-    "prepublishOnly": "npm run clean && npm run build",
-    "start": "tsx index.ts",
-    "start:js": "node dist/index.js",
-    "test": "vitest",
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "start": "node dist/index.js",
+    "serve": "pnpm build && node dist/index.js",
+    "serve:dev": "tsup --watch --onSuccess \"node dist/index.js\"",
+    "clean": "rm -rf dist coverage .vitest-cache",
+    "clean:all": "pnpm run clean && rm -rf node_modules pnpm-lock.yaml",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"**/*.ts\"",
+    "format:check": "prettier --check \"**/*.ts\"",
+    "test": "vitest run",
     "test:ui": "vitest --ui",
-    "test:run": "vitest run",
-    "test:coverage": "vitest --coverage",
+    "test:coverage": "vitest run --coverage",
     "test:manual:search": "tsx tests/manual/search-notes.test.ts",
     "test:manual:read-note": "tsx tests/manual/read-note.test.ts",
     "test:manual:create-note": "tsx tests/manual/create-note.test.ts",
@@ -26,9 +33,12 @@
     "test:manual:delete-note": "tsx tests/manual/delete-note.test.ts",
     "test:manual:delete-folder": "tsx tests/manual/delete-folder.test.ts",
     "test:manual:list-notebooks": "tsx tests/manual/list-notebooks.test.ts",
-    "typecheck": "tsc --noEmit",
-    "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "audit": "pnpm audit --audit-level moderate",
+    "audit:fix": "pnpm audit --fix",
+    "outdated": "pnpm outdated",
+    "ci": "pnpm run lint && pnpm run typecheck && pnpm run format:check && pnpm run test:coverage && pnpm run build",
+    "check": "pnpm run ci",
+    "prepublishOnly": "pnpm run ci"
   },
   "keywords": [
     "mcp",
@@ -41,6 +51,17 @@
   ],
   "author": "Jordan Burke <jordan.burke@gmail.com>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jordanburke/joplin-mcp-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jordanburke/joplin-mcp-server/issues"
+  },
+  "homepage": "https://github.com/jordanburke/joplin-mcp-server#readme",
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.17.2",
     "axios": "^1.11.0",
@@ -48,9 +69,18 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@eslint/js": "^9.33.0",
     "@types/node": "^22.17.1",
+    "@typescript-eslint/eslint-plugin": "^8.39.1",
+    "@typescript-eslint/parser": "^8.39.1",
+    "@vitest/coverage-v8": "^3.2.4",
     "@vitest/ui": "^3.2.4",
+    "concurrently": "^9.2.0",
+    "eslint": "^9.33.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
     "prettier": "^3.6.2",
+    "tsup": "^8.5.0",
     "tsx": "^4.20.4",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"
