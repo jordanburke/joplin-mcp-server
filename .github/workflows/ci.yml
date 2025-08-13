@@ -71,13 +71,9 @@ jobs:
             exit 1
           fi
           
-          # Check CLI files
-          if [ ! -f "dist/bin/cli.js" ]; then
-            echo "Build failed: dist/bin/cli.js not found"
-            exit 1
-          fi
-          if [ ! -f "dist/bin/cli.d.ts" ]; then
-            echo "Build failed: dist/bin/cli.d.ts not found"
+          # Verify the file is executable
+          if [ ! -x "dist/index.js" ]; then
+            echo "Build failed: dist/index.js is not executable"
             exit 1
           fi
           
