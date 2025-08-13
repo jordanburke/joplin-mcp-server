@@ -10,7 +10,7 @@ const mockApiClient = {
 }
 
 vi.mock("../../src/lib/joplin-api-client.js", () => ({
-  default: vi.fn(() => mockApiClient)
+  default: vi.fn(() => mockApiClient),
 }))
 
 describe("Create Tools", () => {

@@ -103,6 +103,10 @@ export default [
     files: ["**/__tests__/**/*.ts", "**/*.test.ts", "tests/**/*.ts"],
     rules: {
       "@typescript-eslint/unbound-method": "off",
+      // Test files commonly use any for mocking and test setup
+      "@typescript-eslint/no-explicit-any": "off",
+      // Manual test files may have unhandled promises (they're meant to run independently)
+      "@typescript-eslint/no-floating-promises": "off",
     },
   },
   {
