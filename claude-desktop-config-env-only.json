@@ -1,0 +1,18 @@
+{
+  "_comment": "Example Claude Desktop configuration using environment variables only (recommended approach)",
+  "_instructions": [
+    "1. Set JOPLIN_TOKEN in your system environment: export JOPLIN_TOKEN=your_actual_token_here",
+    "2. Update your claude_desktop_config.json with this configuration",
+    "3. Restart Claude Desktop"
+  ],
+  "mcpServers": {
+    "joplin": {
+      "command": "npx",
+      "args": ["joplin-mcp-server"],
+      "env": {
+        "JOPLIN_PORT": "41184",
+        "JOPLIN_TOKEN": "${JOPLIN_TOKEN}"
+      }
+    }
+  }
+}

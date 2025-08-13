@@ -58,17 +58,66 @@ OPTIONS:
   --env-file <file>    Load environment variables from file
   --port <port>        Joplin port (default: 41184)
   --token <token>      Joplin API token
+  --transport <type>   Transport type: stdio (default) or http
+  --http-port <port>   HTTP server port (default: 3000, only used with --transport http)
   --help, -h           Show help message
 ```
 
 ### MCP Client Configuration
 
-Usage in Augment Code:
+#### Claude Desktop Configuration
 
+Add to your `claude_desktop_config.json` file using environment variable expansion (recommended):
+
+```json
+{
+  "mcpServers": {
+    "joplin": {
+      "command": "npx",
+      "args": ["joplin-mcp-server"],
+      "env": {
+        "JOPLIN_PORT": "41184",
+        "JOPLIN_TOKEN": "${JOPLIN_TOKEN}"
+      }
+    }
+  }
+}
 ```
-name: joplin
-command: npx joplin-mcp-server --port 41184 --token your_token
+
+Then set the `JOPLIN_TOKEN` environment variable in your system:
+
+```bash
+# On macOS/Linux
+export JOPLIN_TOKEN=your_actual_token_here
+
+# On Windows
+set JOPLIN_TOKEN=your_actual_token_here
 ```
+
+Alternative using command-line arguments with environment expansion:
+
+```json
+{
+  "mcpServers": {
+    "joplin": {
+      "command": "npx",
+      "args": [
+        "joplin-mcp-server",
+        "--port",
+        "${JOPLIN_PORT}",
+        "--token",
+        "${JOPLIN_TOKEN}"
+      ],
+      "env": {
+        "JOPLIN_PORT": "41184",
+        "JOPLIN_TOKEN": "your_actual_token_here"
+      }
+    }
+  }
+}
+```
+
+#### Other MCP Clients
 
 Usage in mcp.json (Cursor and other tools):
 
