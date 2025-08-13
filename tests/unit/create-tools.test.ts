@@ -4,24 +4,24 @@ import CreateNote from "../../src/lib/tools/create-note.js"
 import CreateFolder from "../../src/lib/tools/create-folder.js"
 
 // Mock JoplinAPIClient
-vi.mock("../../lib/joplin-api-client.js", () => {
-  const mockClient = {
-    post: vi.fn(),
-    get: vi.fn(),
-  }
-  return { default: vi.fn(() => mockClient) }
-})
+const mockApiClient = {
+  post: vi.fn(),
+  get: vi.fn(),
+}
+
+vi.mock("../../src/lib/joplin-api-client.js", () => ({
+  default: vi.fn(() => mockApiClient)
+}))
 
 describe("Create Tools", () => {
-  let mockApiClient: any
   let createNote: CreateNote
   let createFolder: CreateFolder
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mockApiClient = new JoplinAPIClient({ token: "test-token" })
-    createNote = new CreateNote(mockApiClient)
-    createFolder = new CreateFolder(mockApiClient)
+    const client = new JoplinAPIClient({ token: "test-token" })
+    createNote = new CreateNote(client)
+    createFolder = new CreateFolder(client)
   })
 
   describe("CreateNote", () => {

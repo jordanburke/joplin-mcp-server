@@ -4,24 +4,24 @@ import DeleteNote from "../../src/lib/tools/delete-note.js"
 import DeleteFolder from "../../src/lib/tools/delete-folder.js"
 
 // Mock JoplinAPIClient
-vi.mock("../../lib/joplin-api-client.js", () => {
-  const mockClient = {
-    get: vi.fn(),
-    delete: vi.fn(),
-  }
-  return { default: vi.fn(() => mockClient) }
-})
+const mockApiClient = {
+  get: vi.fn(),
+  delete: vi.fn(),
+}
+
+vi.mock("../../src/lib/joplin-api-client.js", () => ({
+  default: vi.fn(() => mockApiClient)
+}))
 
 describe("Delete Tools", () => {
-  let mockApiClient: any
   let deleteNote: DeleteNote
   let deleteFolder: DeleteFolder
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mockApiClient = new JoplinAPIClient({ token: "test-token" })
-    deleteNote = new DeleteNote(mockApiClient)
-    deleteFolder = new DeleteFolder(mockApiClient)
+    const client = new JoplinAPIClient({ token: "test-token" })
+    deleteNote = new DeleteNote(client)
+    deleteFolder = new DeleteFolder(client)
   })
 
   describe("DeleteNote", () => {

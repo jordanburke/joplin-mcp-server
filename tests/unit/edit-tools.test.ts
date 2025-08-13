@@ -4,24 +4,24 @@ import EditNote from "../../src/lib/tools/edit-note.js"
 import EditFolder from "../../src/lib/tools/edit-folder.js"
 
 // Mock JoplinAPIClient
-vi.mock("../../lib/joplin-api-client.js", () => {
-  const mockClient = {
-    get: vi.fn(),
-    put: vi.fn(),
-  }
-  return { default: vi.fn(() => mockClient) }
-})
+const mockApiClient = {
+  get: vi.fn(),
+  put: vi.fn(),
+}
+
+vi.mock("../../src/lib/joplin-api-client.js", () => ({
+  default: vi.fn(() => mockApiClient)
+}))
 
 describe("Edit Tools", () => {
-  let mockApiClient: any
   let editNote: EditNote
   let editFolder: EditFolder
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mockApiClient = new JoplinAPIClient({ token: "test-token" })
-    editNote = new EditNote(mockApiClient)
-    editFolder = new EditFolder(mockApiClient)
+    const client = new JoplinAPIClient({ token: "test-token" })
+    editNote = new EditNote(client)
+    editFolder = new EditFolder(client)
   })
 
   describe("EditNote", () => {
