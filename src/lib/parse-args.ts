@@ -62,6 +62,39 @@ function parseArgs(): string[] {
     process.env.JOPLIN_TOKEN = token
   }
 
+  // Handle --transport
+  if (args.includes("--transport")) {
+    const transportIndex = args.indexOf("--transport")
+    const transport = args[transportIndex + 1]
+
+    if (!transport || transport.startsWith("--")) {
+      process.stderr.write("Error: --transport requires a transport type (stdio|http)\n")
+      process.exit(1)
+    }
+
+    if (transport !== "stdio" && transport !== "http") {
+      process.stderr.write("Error: --transport must be either 'stdio' or 'http'\n")
+      process.exit(1)
+    }
+
+    // Remove the --transport and its value from args
+    args.splice(transportIndex, 2)
+  }
+
+  // Handle --http-port
+  if (args.includes("--http-port")) {
+    const httpPortIndex = args.indexOf("--http-port")
+    const httpPort = args[httpPortIndex + 1]
+
+    if (!httpPort || httpPort.startsWith("--")) {
+      process.stderr.write("Error: --http-port requires a port number\n")
+      process.exit(1)
+    }
+
+    // Remove the --http-port and its value from args
+    args.splice(httpPortIndex, 2)
+  }
+
   // Handle --help
   if (args.includes("--help") || args.includes("-h")) {
     process.stderr.write(`
@@ -74,6 +107,8 @@ OPTIONS:
   --env-file <file>    Load environment variables from file
   --port <port>        Joplin port (default: 41184)
   --token <token>      Joplin API token
+  --transport <type>   Transport type: stdio (default) or http
+  --http-port <port>   HTTP server port (default: 3000, only used with --transport http)
   --help, -h           Show this help message
 
 ENVIRONMENT VARIABLES:
@@ -82,9 +117,13 @@ ENVIRONMENT VARIABLES:
   LOG_LEVEL           Log level: debug, info, warn, error (default: info)
 
 EXAMPLES:
+  # Stdio transport (default, for Claude Desktop)
   joplin-mcp-server --port 41184 --token your_token
   joplin-mcp-server --env-file /path/to/.env
-  joplin-mcp-server --env-file .env.local --port 41185
+
+  # HTTP transport (for web applications)
+  joplin-mcp-server --transport http --http-port 3000 --token your_token
+  joplin-mcp-server --env-file .env.local --transport http
 
 Find your Joplin token in: Tools > Options > Web Clipper
 `)

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest"
-import JoplinAPIClient from "../../lib/joplin-api-client.js"
-import { ListNotebooks, SearchNotes, ReadNotebook } from "../../lib/tools/index.js"
+import JoplinAPIClient from "../../src/lib/joplin-api-client.js"
+import { ListNotebooks, SearchNotes, ReadNotebook } from "../../src/lib/tools/index.js"
 
 describe("Joplin Integration Tests", () => {
   let client: JoplinAPIClient

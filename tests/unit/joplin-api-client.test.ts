@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"
-import JoplinAPIClient from "../../lib/joplin-api-client.js"
+import JoplinAPIClient from "../../src/lib/joplin-api-client.js"
 
 // Mock axios
 vi.mock("axios", () => {

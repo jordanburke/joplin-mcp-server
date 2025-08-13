@@ -1,9 +1,9 @@
 import { defineConfig } from "tsup"
 
 export default defineConfig({
-  entry: ["index.ts", "bin/cli.ts"],
+  entry: ["src/index.ts", "src/bin/cli.ts"],
   format: ["esm"], // Only ESM due to top-level await
-  dts: true,
+  dts: false, // Temporarily disable DTS due to Zod v4 compatibility issues
   sourcemap: true,
   clean: true,
   minify: false,

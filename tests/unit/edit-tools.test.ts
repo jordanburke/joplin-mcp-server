@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"
-import JoplinAPIClient from "../../lib/joplin-api-client.js"
-import EditNote from "../../lib/tools/edit-note.js"
-import EditFolder from "../../lib/tools/edit-folder.js"
+import JoplinAPIClient from "../../src/lib/joplin-api-client.js"
+import EditNote from "../../src/lib/tools/edit-note.js"
+import EditFolder from "../../src/lib/tools/edit-folder.js"
 
 // Mock JoplinAPIClient
 vi.mock("../../lib/joplin-api-client.js", () => {

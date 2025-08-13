@@ -1,6 +1,6 @@
 import dotenv from "dotenv"
-import JoplinAPIClient from "../../lib/joplin-api-client.js"
-import { SearchNotes } from "../../lib/tools/index.js"
+import JoplinAPIClient from "../../src/lib/joplin-api-client.js"
+import { SearchNotes } from "../../src/lib/tools/index.js"
 
 // Load environment variables
 dotenv.config()
