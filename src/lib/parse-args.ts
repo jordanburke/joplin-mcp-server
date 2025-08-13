@@ -1,6 +1,6 @@
-import dotenv from "dotenv"
 import { fileURLToPath } from "url"
 import { dirname, resolve } from "path"
+import fs from "fs"
 
 const __filename = fileURLToPath(import.meta.url)
 const ___dirname = dirname(__filename)
@@ -16,6 +16,31 @@ function parseArgs(): ParsedArgs {
   let transport: "stdio" | "http" = "stdio"
   let httpPort = 3000
 
+  // Load environment variables without dotenv debug output (for MCP stdio compatibility)
+  const loadEnvFile = (envPath: string) => {
+    try {
+      if (fs.existsSync(envPath)) {
+        const envContent = fs.readFileSync(envPath, "utf-8")
+        const envLines = envContent.split("\n")
+
+        for (const line of envLines) {
+          const trimmedLine = line.trim()
+          if (trimmedLine && !trimmedLine.startsWith("#")) {
+            const [key, ...valueParts] = trimmedLine.split("=")
+            if (key && valueParts.length > 0) {
+              const value = valueParts.join("=").replace(/^["']|["']$/g, "")
+              if (!process.env[key.trim()]) {
+                process.env[key.trim()] = value
+              }
+            }
+          }
+        }
+      }
+    } catch (_error) {
+      // Silently ignore env file errors
+    }
+  }
+
   // Handle --env-file
   if (args.includes("--env-file")) {
     const envFileIndex = args.indexOf("--env-file")
@@ -30,10 +55,10 @@ function parseArgs(): ParsedArgs {
     args.splice(envFileIndex, 2)
 
     // Load the environment variables from the specified file
-    dotenv.config({ path: resolve(process.cwd(), envFile) })
+    loadEnvFile(resolve(process.cwd(), envFile))
   } else {
     // Load from default .env file
-    dotenv.config()
+    loadEnvFile(".env")
   }
 
   // Handle --port
