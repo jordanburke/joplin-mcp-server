@@ -1,7 +1,7 @@
 import { defineConfig } from "tsup"
 
 export default defineConfig({
-  entry: ["src/index.ts", "src/bin/cli.ts"],
+  entry: ["src/index.ts"],
   format: ["esm"], // Only ESM due to top-level await
   dts: true, // Generate TypeScript declaration files
   sourcemap: true,
