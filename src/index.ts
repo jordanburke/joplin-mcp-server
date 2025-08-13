@@ -247,62 +247,74 @@ async function startStdioServer(port: number, token: string): Promise<void> {
         }
 
         case "create_note": {
-          const createNoteResult = await manager.createNote(args as {
-            title?: string | undefined
-            body?: string | undefined
-            body_html?: string | undefined
-            parent_id?: string | undefined
-            is_todo?: boolean | undefined
-            image_data_url?: string | undefined
-          })
+          const createNoteResult = await manager.createNote(
+            args as {
+              title?: string | undefined
+              body?: string | undefined
+              body_html?: string | undefined
+              parent_id?: string | undefined
+              is_todo?: boolean | undefined
+              image_data_url?: string | undefined
+            },
+          )
           return { content: [{ type: "text", text: createNoteResult }], isError: false }
         }
 
         case "create_folder": {
-          const createFolderResult = await manager.createFolder(args as {
-            title: string
-            parent_id?: string | undefined
-          })
+          const createFolderResult = await manager.createFolder(
+            args as {
+              title: string
+              parent_id?: string | undefined
+            },
+          )
           return { content: [{ type: "text", text: createFolderResult }], isError: false }
         }
 
         case "edit_note": {
-          const editNoteResult = await manager.editNote(args as {
-            note_id: string
-            title?: string | undefined
-            body?: string | undefined
-            body_html?: string | undefined
-            parent_id?: string | undefined
-            is_todo?: boolean | undefined
-            todo_completed?: boolean | undefined
-            todo_due?: number | undefined
-          })
+          const editNoteResult = await manager.editNote(
+            args as {
+              note_id: string
+              title?: string | undefined
+              body?: string | undefined
+              body_html?: string | undefined
+              parent_id?: string | undefined
+              is_todo?: boolean | undefined
+              todo_completed?: boolean | undefined
+              todo_due?: number | undefined
+            },
+          )
           return { content: [{ type: "text", text: editNoteResult }], isError: false }
         }
 
         case "edit_folder": {
-          const editFolderResult = await manager.editFolder(args as {
-            folder_id: string
-            title?: string | undefined
-            parent_id?: string | undefined
-          })
+          const editFolderResult = await manager.editFolder(
+            args as {
+              folder_id: string
+              title?: string | undefined
+              parent_id?: string | undefined
+            },
+          )
           return { content: [{ type: "text", text: editFolderResult }], isError: false }
         }
 
         case "delete_note": {
-          const deleteNoteResult = await manager.deleteNote(args as {
-            note_id: string
-            confirm?: boolean | undefined
-          })
+          const deleteNoteResult = await manager.deleteNote(
+            args as {
+              note_id: string
+              confirm?: boolean | undefined
+            },
+          )
           return { content: [{ type: "text", text: deleteNoteResult }], isError: false }
         }
 
         case "delete_folder": {
-          const deleteFolderResult = await manager.deleteFolder(args as {
-            folder_id: string
-            confirm?: boolean | undefined
-            force?: boolean | undefined
-          })
+          const deleteFolderResult = await manager.deleteFolder(
+            args as {
+              folder_id: string
+              confirm?: boolean | undefined
+              force?: boolean | undefined
+            },
+          )
           return { content: [{ type: "text", text: deleteFolderResult }], isError: false }
         }
 
