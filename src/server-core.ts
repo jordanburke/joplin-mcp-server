@@ -82,42 +82,50 @@ export class JoplinServerManager {
   }
 
   async createNote(params: {
-    title?: string
-    body?: string
-    body_html?: string
-    parent_id?: string
-    is_todo?: boolean
-    image_data_url?: string
+    title?: string | undefined
+    body?: string | undefined
+    body_html?: string | undefined
+    parent_id?: string | undefined
+    is_todo?: boolean | undefined
+    image_data_url?: string | undefined
   }): Promise<string> {
     return await this.tools.createNote.call(params)
   }
 
-  async createFolder(params: { title: string; parent_id?: string }): Promise<string> {
+  async createFolder(params: { title: string; parent_id?: string | undefined }): Promise<string> {
     return await this.tools.createFolder.call(params)
   }
 
   async editNote(params: {
     note_id: string
-    title?: string
-    body?: string
-    body_html?: string
-    parent_id?: string
-    is_todo?: boolean
-    todo_completed?: boolean
-    todo_due?: number
+    title?: string | undefined
+    body?: string | undefined
+    body_html?: string | undefined
+    parent_id?: string | undefined
+    is_todo?: boolean | undefined
+    todo_completed?: boolean | undefined
+    todo_due?: number | undefined
   }): Promise<string> {
     return await this.tools.editNote.call(params)
   }
 
-  async editFolder(params: { folder_id: string; title?: string; parent_id?: string }): Promise<string> {
+  async editFolder(params: {
+    folder_id: string
+    title?: string | undefined
+    parent_id?: string | undefined
+  }): Promise<string> {
     return await this.tools.editFolder.call(params)
   }
 
-  async deleteNote(params: { note_id: string; confirm?: boolean }): Promise<string> {
+  async deleteNote(params: { note_id: string; confirm?: boolean | undefined }): Promise<string> {
     return await this.tools.deleteNote.call(params)
   }
 
-  async deleteFolder(params: { folder_id: string; confirm?: boolean; force?: boolean }): Promise<string> {
+  async deleteFolder(params: {
+    folder_id: string
+    confirm?: boolean | undefined
+    force?: boolean | undefined
+  }): Promise<string> {
     return await this.tools.deleteFolder.call(params)
   }
 }

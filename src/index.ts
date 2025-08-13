@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
+import { Server } from "@modelcontextprotocol/sdk/server/index.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
-import { z } from "zod"
+import { ListToolsRequestSchema, CallToolRequestSchema, type CallToolRequest } from "@modelcontextprotocol/sdk/types.js"
 import fs from "fs"
 import path from "path"
 import { fileURLToPath } from "url"
@@ -11,12 +11,11 @@ import { startFastMCPServer } from "./server-fastmcp.js"
 import { initializeJoplinManager } from "./server-core.js"
 
 // Parse command line arguments and check for transport mode
-const args = parseArgs()
+const parsedArgs = parseArgs()
+const { transport, httpPort } = parsedArgs
 
 // Check if HTTP transport is requested
-const isHttpMode = args.includes("--transport") && args[args.indexOf("--transport") + 1] === "http"
-const httpPortArg = args.includes("--http-port") ? args[args.indexOf("--http-port") + 1] : "3000"
-const httpPort = parseInt(httpPortArg, 10)
+const isHttpMode = transport === "http"
 
 // Set default port if not specified
 if (!process.env.JOPLIN_PORT) {
@@ -50,21 +49,244 @@ if (isHttpMode) {
 } else {
   // Default: Use stdio transport with traditional MCP SDK
   console.error("📡 Starting stdio transport mode...")
-  startStdioServer(joplinPort, joplinToken)
+  void startStdioServer(joplinPort, joplinToken)
 }
 
 async function startStdioServer(port: number, token: string): Promise<void> {
   // Initialize Joplin manager
   const manager = initializeJoplinManager(port, token)
 
-  // Create the MCP server
-  const server = new McpServer({
-    name: "joplin-mcp-server",
-    version: "1.0.1",
+  // Create the MCP server using the newer SDK pattern
+  const server = new Server(
+    {
+      name: "joplin-mcp-server",
+      version: "1.0.1",
+    },
+    {
+      capabilities: {
+        resources: {},
+        tools: {},
+        prompts: {},
+      },
+    },
+  )
+
+  // Register tool list handler
+  server.setRequestHandler(ListToolsRequestSchema, () => {
+    return {
+      tools: [
+        {
+          name: "list_notebooks",
+          description: "Retrieve the complete notebook hierarchy from Joplin",
+          inputSchema: {
+            type: "object",
+            properties: {},
+          },
+        },
+        {
+          name: "search_notes",
+          description: "Search for notes in Joplin and return matching notebooks",
+          inputSchema: {
+            type: "object",
+            properties: {
+              query: { type: "string", description: "Search query" },
+            },
+            required: ["query"],
+          },
+        },
+        {
+          name: "read_notebook",
+          description: "Read the contents of a specific notebook",
+          inputSchema: {
+            type: "object",
+            properties: {
+              notebook_id: { type: "string", description: "ID of the notebook to read" },
+            },
+            required: ["notebook_id"],
+          },
+        },
+        {
+          name: "read_note",
+          description: "Read the full content of a specific note",
+          inputSchema: {
+            type: "object",
+            properties: {
+              note_id: { type: "string", description: "ID of the note to read" },
+            },
+            required: ["note_id"],
+          },
+        },
+        {
+          name: "read_multinote",
+          description: "Read the full content of multiple notes at once",
+          inputSchema: {
+            type: "object",
+            properties: {
+              note_ids: { type: "array", items: { type: "string" }, description: "Array of note IDs to read" },
+            },
+            required: ["note_ids"],
+          },
+        },
+        {
+          name: "create_note",
+          description: "Create a new note in Joplin",
+          inputSchema: {
+            type: "object",
+            properties: {
+              title: { type: "string", description: "Note title" },
+              body: { type: "string", description: "Note content in Markdown" },
+              body_html: { type: "string", description: "Note content in HTML" },
+              parent_id: { type: "string", description: "ID of parent notebook" },
+              is_todo: { type: "boolean", description: "Whether this is a todo note" },
+              image_data_url: { type: "string", description: "Base64 encoded image data URL" },
+            },
+          },
+        },
+        {
+          name: "create_folder",
+          description: "Create a new folder/notebook in Joplin",
+          inputSchema: {
+            type: "object",
+            properties: {
+              title: { type: "string", description: "Notebook title" },
+              parent_id: { type: "string", description: "ID of parent notebook" },
+            },
+            required: ["title"],
+          },
+        },
+        {
+          name: "edit_note",
+          description: "Edit/update an existing note in Joplin",
+          inputSchema: {
+            type: "object",
+            properties: {
+              note_id: { type: "string", description: "ID of the note to edit" },
+              title: { type: "string", description: "New note title" },
+              body: { type: "string", description: "New note content in Markdown" },
+              body_html: { type: "string", description: "New note content in HTML" },
+              parent_id: { type: "string", description: "New parent notebook ID" },
+              is_todo: { type: "boolean", description: "Whether this is a todo note" },
+              todo_completed: { type: "boolean", description: "Whether todo is completed" },
+              todo_due: { type: "number", description: "Todo due date (Unix timestamp)" },
+            },
+            required: ["note_id"],
+          },
+        },
+        {
+          name: "edit_folder",
+          description: "Edit/update an existing folder/notebook in Joplin",
+          inputSchema: {
+            type: "object",
+            properties: {
+              folder_id: { type: "string", description: "ID of the folder to edit" },
+              title: { type: "string", description: "New folder title" },
+              parent_id: { type: "string", description: "New parent folder ID" },
+            },
+            required: ["folder_id"],
+          },
+        },
+        {
+          name: "delete_note",
+          description: "Delete a note from Joplin (requires confirmation)",
+          inputSchema: {
+            type: "object",
+            properties: {
+              note_id: { type: "string", description: "ID of the note to delete" },
+              confirm: { type: "boolean", description: "Confirmation flag" },
+            },
+            required: ["note_id"],
+          },
+        },
+        {
+          name: "delete_folder",
+          description: "Delete a folder/notebook from Joplin (requires confirmation)",
+          inputSchema: {
+            type: "object",
+            properties: {
+              folder_id: { type: "string", description: "ID of the folder to delete" },
+              confirm: { type: "boolean", description: "Confirmation flag" },
+              force: { type: "boolean", description: "Force delete even if folder has contents" },
+            },
+            required: ["folder_id"],
+          },
+        },
+      ],
+    }
   })
 
-  // Register all tools using the manager
-  registerTools(server, manager)
+  // Register tool call handler
+  server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest) => {
+    const toolName = request.params.name
+    const args = request.params.arguments || {}
+
+    try {
+      switch (toolName) {
+        case "list_notebooks": {
+          const listResult = await manager.listNotebooks()
+          return { content: [{ type: "text", text: listResult }], isError: false }
+        }
+
+        case "search_notes": {
+          const searchResult = await manager.searchNotes(args.query as string)
+          return { content: [{ type: "text", text: searchResult }], isError: false }
+        }
+
+        case "read_notebook": {
+          const notebookResult = await manager.readNotebook(args.notebook_id as string)
+          return { content: [{ type: "text", text: notebookResult }], isError: false }
+        }
+
+        case "read_note": {
+          const noteResult = await manager.readNote(args.note_id as string)
+          return { content: [{ type: "text", text: noteResult }], isError: false }
+        }
+
+        case "read_multinote": {
+          const multiResult = await manager.readMultiNote(args.note_ids as string[])
+          return { content: [{ type: "text", text: multiResult }], isError: false }
+        }
+
+        case "create_note": {
+          const createNoteResult = await manager.createNote(args)
+          return { content: [{ type: "text", text: createNoteResult }], isError: false }
+        }
+
+        case "create_folder": {
+          const createFolderResult = await manager.createFolder(args)
+          return { content: [{ type: "text", text: createFolderResult }], isError: false }
+        }
+
+        case "edit_note": {
+          const editNoteResult = await manager.editNote(args)
+          return { content: [{ type: "text", text: editNoteResult }], isError: false }
+        }
+
+        case "edit_folder": {
+          const editFolderResult = await manager.editFolder(args)
+          return { content: [{ type: "text", text: editFolderResult }], isError: false }
+        }
+
+        case "delete_note": {
+          const deleteNoteResult = await manager.deleteNote(args)
+          return { content: [{ type: "text", text: deleteNoteResult }], isError: false }
+        }
+
+        case "delete_folder": {
+          const deleteFolderResult = await manager.deleteFolder(args)
+          return { content: [{ type: "text", text: deleteFolderResult }], isError: false }
+        }
+
+        default:
+          throw new Error(`Unknown tool: ${toolName}`)
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      return {
+        content: [{ type: "text", text: `Error: ${errorMessage}` }],
+        isError: true,
+      }
+    }
+  })
 
   // Create logs directory if it doesn't exist
   const __filename = fileURLToPath(import.meta.url)
@@ -88,7 +310,7 @@ async function startStdioServer(port: number, token: string): Promise<void> {
       this.commandCounter = 0
     }
 
-    async sendMessage(message: any): Promise<void> {
+    async sendMessage(message: unknown): Promise<void> {
       // Log outgoing message (response)
       const logEntry = {
         timestamp: new Date().toISOString(),
@@ -104,7 +326,7 @@ async function startStdioServer(port: number, token: string): Promise<void> {
       return parent.sendMessage.call(this, message)
     }
 
-    async handleMessage(message: any): Promise<void> {
+    async handleMessage(message: unknown): Promise<void> {
       // Log incoming message (command)
       this.commandCounter++
       const logEntry = {
@@ -133,228 +355,4 @@ async function startStdioServer(port: number, token: string): Promise<void> {
     process.stderr.write(`Failed to start MCP server: ${_error instanceof Error ? _error.message : String(_error)}\n`)
     process.exit(1)
   }
-}
-
-function registerTools(server: McpServer, manager: any): void {
-  // Register the list_notebooks tool
-  server.registerTool(
-    "list_notebooks",
-    {
-      title: "List Notebooks",
-      description: "Retrieve the complete notebook hierarchy from Joplin",
-      inputSchema: {},
-    },
-    async () => {
-      const result = await manager.listNotebooks()
-      return {
-        content: [{ type: "text", text: result }],
-      }
-    },
-  )
-
-  // Register the search_notes tool
-  server.registerTool(
-    "search_notes",
-    {
-      title: "Search Notes",
-      description: "Search for notes in Joplin and return matching notebooks",
-      inputSchema: z.object({ query: z.string() }),
-    },
-    async ({ query }: { query: string }) => {
-      const result = await manager.searchNotes(query)
-      return {
-        content: [{ type: "text", text: result }],
-      }
-    },
-  )
-
-  // Register the read_notebook tool
-  server.registerTool(
-    "read_notebook",
-    {
-      title: "Read Notebook",
-      description: "Read the contents of a specific notebook",
-      inputSchema: z.object({ notebook_id: z.string() }),
-    },
-    async ({ notebook_id }: { notebook_id: string }) => {
-      const result = await manager.readNotebook(notebook_id)
-      return {
-        content: [{ type: "text", text: result }],
-      }
-    },
-  )
-
-  // Register the read_note tool
-  server.registerTool(
-    "read_note",
-    {
-      title: "Read Note",
-      description: "Read the full content of a specific note",
-      inputSchema: z.object({ note_id: z.string() }),
-    },
-    async ({ note_id }: { note_id: string }) => {
-      const result = await manager.readNote(note_id)
-      return {
-        content: [{ type: "text", text: result }],
-      }
-    },
-  )
-
-  // Register the read_multinote tool
-  server.registerTool(
-    "read_multinote",
-    {
-      title: "Read Multiple Notes",
-      description: "Read the full content of multiple notes at once",
-      inputSchema: z.object({ note_ids: z.array(z.string()) }),
-    },
-    async ({ note_ids }: { note_ids: string[] }) => {
-      const result = await manager.readMultiNote(note_ids)
-      return {
-        content: [{ type: "text", text: result }],
-      }
-    },
-  )
-
-  // Register the create_note tool
-  server.registerTool(
-    "create_note",
-    {
-      title: "Create Note",
-      description: "Create a new note in Joplin",
-      inputSchema: z.object({
-        title: z.string().optional(),
-        body: z.string().optional(),
-        body_html: z.string().optional(),
-        parent_id: z.string().optional(),
-        is_todo: z.boolean().optional(),
-        image_data_url: z.string().optional(),
-      }),
-    },
-    async (params: {
-      title?: string | undefined
-      body?: string | undefined
-      body_html?: string | undefined
-      parent_id?: string | undefined
-      is_todo?: boolean | undefined
-      image_data_url?: string | undefined
-    }) => {
-      const result = await manager.createNote(params)
-      return {
-        content: [{ type: "text", text: result }],
-      }
-    },
-  )
-
-  // Register the create_folder tool
-  server.registerTool(
-    "create_folder",
-    {
-      title: "Create Folder",
-      description: "Create a new folder/notebook in Joplin",
-      inputSchema: z.object({
-        title: z.string(),
-        parent_id: z.string().optional(),
-      }),
-    },
-    async (params: { title: string; parent_id?: string | undefined }) => {
-      const result = await manager.createFolder(params)
-      return {
-        content: [{ type: "text", text: result }],
-      }
-    },
-  )
-
-  // Register the edit_note tool
-  server.registerTool(
-    "edit_note",
-    {
-      title: "Edit Note",
-      description: "Edit/update an existing note in Joplin",
-      inputSchema: z.object({
-        note_id: z.string(),
-        title: z.string().optional(),
-        body: z.string().optional(),
-        body_html: z.string().optional(),
-        parent_id: z.string().optional(),
-        is_todo: z.boolean().optional(),
-        todo_completed: z.boolean().optional(),
-        todo_due: z.number().optional(),
-      }),
-    },
-    async (params: {
-      note_id: string
-      title?: string | undefined
-      body?: string | undefined
-      body_html?: string | undefined
-      parent_id?: string | undefined
-      is_todo?: boolean | undefined
-      todo_completed?: boolean | undefined
-      todo_due?: number | undefined
-    }) => {
-      const result = await manager.editNote(params)
-      return {
-        content: [{ type: "text", text: result }],
-      }
-    },
-  )
-
-  // Register the edit_folder tool
-  server.registerTool(
-    "edit_folder",
-    {
-      title: "Edit Folder",
-      description: "Edit/update an existing folder/notebook in Joplin",
-      inputSchema: z.object({
-        folder_id: z.string(),
-        title: z.string().optional(),
-        parent_id: z.string().optional(),
-      }),
-    },
-    async (params: { folder_id: string; title?: string | undefined; parent_id?: string | undefined }) => {
-      const result = await manager.editFolder(params)
-      return {
-        content: [{ type: "text", text: result }],
-      }
-    },
-  )
-
-  // Register the delete_note tool
-  server.registerTool(
-    "delete_note",
-    {
-      title: "Delete Note",
-      description: "Delete a note from Joplin (requires confirmation)",
-      inputSchema: z.object({
-        note_id: z.string(),
-        confirm: z.boolean().optional(),
-      }),
-    },
-    async (params: { note_id: string; confirm?: boolean | undefined }) => {
-      const result = await manager.deleteNote(params)
-      return {
-        content: [{ type: "text", text: result }],
-      }
-    },
-  )
-
-  // Register the delete_folder tool
-  server.registerTool(
-    "delete_folder",
-    {
-      title: "Delete Folder",
-      description: "Delete a folder/notebook from Joplin (requires confirmation)",
-      inputSchema: z.object({
-        folder_id: z.string(),
-        confirm: z.boolean().optional(),
-        force: z.boolean().optional(),
-      }),
-    },
-    async (params: { folder_id: string; confirm?: boolean | undefined; force?: boolean | undefined }) => {
-      const result = await manager.deleteFolder(params)
-      return {
-        content: [{ type: "text", text: result }],
-      }
-    },
-  )
 }

@@ -5,8 +5,16 @@ import { dirname, resolve } from "path"
 const __filename = fileURLToPath(import.meta.url)
 const ___dirname = dirname(__filename)
 
-function parseArgs(): string[] {
+export interface ParsedArgs {
+  remainingArgs: string[]
+  transport: "stdio" | "http"
+  httpPort: number
+}
+
+function parseArgs(): ParsedArgs {
   const args = process.argv.slice(2)
+  let transport: "stdio" | "http" = "stdio"
+  let httpPort = 3000
 
   // Handle --env-file
   if (args.includes("--env-file")) {
@@ -65,17 +73,19 @@ function parseArgs(): string[] {
   // Handle --transport
   if (args.includes("--transport")) {
     const transportIndex = args.indexOf("--transport")
-    const transport = args[transportIndex + 1]
+    const transportValue = args[transportIndex + 1]
 
-    if (!transport || transport.startsWith("--")) {
+    if (!transportValue || transportValue.startsWith("--")) {
       process.stderr.write("Error: --transport requires a transport type (stdio|http)\n")
       process.exit(1)
     }
 
-    if (transport !== "stdio" && transport !== "http") {
+    if (transportValue !== "stdio" && transportValue !== "http") {
       process.stderr.write("Error: --transport must be either 'stdio' or 'http'\n")
       process.exit(1)
     }
+
+    transport = transportValue as "stdio" | "http"
 
     // Remove the --transport and its value from args
     args.splice(transportIndex, 2)
@@ -84,10 +94,17 @@ function parseArgs(): string[] {
   // Handle --http-port
   if (args.includes("--http-port")) {
     const httpPortIndex = args.indexOf("--http-port")
-    const httpPort = args[httpPortIndex + 1]
+    const httpPortValue = args[httpPortIndex + 1]
 
-    if (!httpPort || httpPort.startsWith("--")) {
+    if (!httpPortValue || httpPortValue.startsWith("--")) {
       process.stderr.write("Error: --http-port requires a port number\n")
+      process.exit(1)
+    }
+
+    httpPort = parseInt(httpPortValue, 10)
+
+    if (isNaN(httpPort) || httpPort < 1 || httpPort > 65535) {
+      process.stderr.write("Error: --http-port must be a valid port number (1-65535)\n")
       process.exit(1)
     }
 
@@ -130,7 +147,11 @@ Find your Joplin token in: Tools > Options > Web Clipper
     process.exit(0)
   }
 
-  return args
+  return {
+    remainingArgs: args,
+    transport,
+    httpPort,
+  }
 }
 
 export default parseArgs

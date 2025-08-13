@@ -201,10 +201,18 @@ export async function startFastMCPServer(options: FastMCPServerOptions): Promise
   }
   console.error("✅ Joplin service is available")
 
-  // Start the server
+  // Start the server with HTTP streaming transport
   const port = options.httpPort || 3000
-  const endpoint = options.endpoint || `/mcp`
+  const endpoint = options.endpoint || "/mcp"
 
-  await server.listen(port, endpoint)
-  console.error(`🚀 FastMCP server listening on http://localhost:${port}${endpoint}`)
+  await server.start({
+    transportType: "httpStream",
+    httpStream: {
+      port,
+      endpoint: endpoint as `/${string}`,
+    },
+  })
+
+  console.error(`✓ FastMCP server running on http://0.0.0.0:${port}${endpoint}`)
+  console.error("🔌 Connect with StreamableHTTPClientTransport")
 }
