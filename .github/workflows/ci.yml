@@ -1,110 +1,33 @@
-name: CI
+# This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
+
+name: Node.js CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: ["main", "develop"]
   pull_request:
-    branches: [main]
+    branches: ["main", "develop"]
 
 jobs:
-  test:
-    runs-on: ${{ matrix.os }}
+  build:
+    runs-on: ubuntu-latest
 
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
         node-version: [22.x]
+        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Set up Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: "pnpm"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Check formatting
-        run: pnpm run format:check
-
-      - name: Lint code
-        run: pnpm run lint
-
-      - name: Type check
-        run: pnpm run typecheck
-
-      - name: Build project
-        run: pnpm run build
-
-      - name: Run tests
-        run: pnpm run test:coverage
-        timeout-minutes: 5
-
-      - name: Upload coverage
-        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '22.x'
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-${{ github.sha }}
-          path: coverage/
-          retention-days: 7
-
-      - name: Verify build output
-        shell: bash
-        run: |
-          echo "Checking build output files..."
-          ls -la dist/
-
-          # Check main entry files
-          if [ ! -f "dist/index.js" ]; then
-            echo "Build failed: dist/index.js not found"
-            exit 1
-          fi
-          if [ ! -f "dist/index.d.ts" ]; then
-            echo "Build failed: dist/index.d.ts not found"
-            exit 1
-          fi
-
-          # Verify the file is executable
-          if [ ! -x "dist/index.js" ]; then
-            echo "Build failed: dist/index.js is not executable"
-            exit 1
-          fi
-
-          echo "✅ All required build files are present"
-
-  publish-dry-run:
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-
-    steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
 
       - uses: pnpm/action-setup@v4
-
-      - name: Use Node.js
-        uses: actions/setup-node@v4
+        name: Install pnpm
         with:
-          node-version: "22.x"
-          cache: "pnpm"
+          run_install: false
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
-      - name: Build
-        run: pnpm run build
-
-      - name: Pack
-        run: pnpm pack
-
-      - name: Check package contents
-        run: |
-          echo "Package contents:"
-          tar -tzf joplin-mcp-server-*.tgz | head -20
+      - name: Run CI Pipeline
+        run: pnpm run validate
