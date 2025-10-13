@@ -164,7 +164,11 @@ OPTIONS:
 
 #### Claude Desktop Configuration
 
-Add to your `claude_desktop_config.json` file using environment variable expansion (recommended):
+**Important**: Claude Desktop does NOT support environment variable expansion (`${VAR}` syntax). You must provide values directly.
+
+**Option 1: Using env Section (Recommended)**
+
+Add to your `claude_desktop_config.json`:
 
 ```json
 {
@@ -173,61 +177,117 @@ Add to your `claude_desktop_config.json` file using environment variable expansi
       "command": "npx",
       "args": ["joplin-mcp-server"],
       "env": {
+        "JOPLIN_TOKEN": "your_actual_token_here",
         "JOPLIN_PORT": "41184",
-        "JOPLIN_TOKEN": "${JOPLIN_TOKEN}"
+        "JOPLIN_HOST": "127.0.0.1"
       }
     }
   }
 }
 ```
 
-Then set the `JOPLIN_TOKEN` environment variable in your system:
-
-```bash
-# On macOS/Linux
-export JOPLIN_TOKEN=your_actual_token_here
-
-# On Windows
-set JOPLIN_TOKEN=your_actual_token_here
-```
-
-Alternative using command-line arguments with environment expansion:
+**Option 2: Using Command-Line Arguments**
 
 ```json
 {
   "mcpServers": {
     "joplin": {
       "command": "npx",
-      "args": ["joplin-mcp-server", "--port", "${JOPLIN_PORT}", "--token", "${JOPLIN_TOKEN}"],
+      "args": ["joplin-mcp-server", "--token", "your_actual_token_here", "--port", "41184", "--host", "127.0.0.1"]
+    }
+  }
+}
+```
+
+Restart Claude Desktop after updating the configuration.
+
+#### Claude Code Configuration
+
+Claude Code supports environment variable expansion in `.mcp.json`.
+
+**Set environment variables in your shell** (add to `~/.bashrc` or `~/.zshrc`):
+
+```bash
+export JOPLIN_TOKEN="your_actual_token_here"
+export JOPLIN_PORT="41184"
+export JOPLIN_HOST="127.0.0.1"
+```
+
+**Add to your `.mcp.json`**:
+
+```json
+{
+  "mcpServers": {
+    "joplin": {
+      "command": "npx",
+      "args": ["joplin-mcp-server"],
       "env": {
-        "JOPLIN_PORT": "41184",
-        "JOPLIN_TOKEN": "your_actual_token_here"
+        "JOPLIN_TOKEN": "${JOPLIN_TOKEN}",
+        "JOPLIN_PORT": "${JOPLIN_PORT}",
+        "JOPLIN_HOST": "${JOPLIN_HOST}"
       }
     }
   }
 }
 ```
 
-#### Other MCP Clients
-
-Usage in mcp.json (Cursor and other tools):
+Or simply omit the `env` section and let the server inherit shell environment variables:
 
 ```json
 {
-  "joplin": {
-    "command": "npx",
-    "args": ["joplin-mcp-server", "--port", "41184", "--token", "your_joplin_token"]
+  "mcpServers": {
+    "joplin": {
+      "command": "npx",
+      "args": ["joplin-mcp-server"]
+    }
   }
 }
 ```
 
-Or using environment file:
+#### Other MCP Clients (Cursor, etc.)
+
+Most MCP clients support environment variable expansion (`${VAR}` syntax).
+
+**With environment variables:**
 
 ```json
 {
-  "joplin": {
-    "command": "npx",
-    "args": ["joplin-mcp-server", "--env-file", "/path/to/your/.env"]
+  "mcpServers": {
+    "joplin": {
+      "command": "npx",
+      "args": ["joplin-mcp-server"],
+      "env": {
+        "JOPLIN_TOKEN": "${JOPLIN_TOKEN}",
+        "JOPLIN_PORT": "${JOPLIN_PORT}",
+        "JOPLIN_HOST": "${JOPLIN_HOST}"
+      }
+    }
+  }
+}
+```
+
+**With direct values:**
+
+```json
+{
+  "mcpServers": {
+    "joplin": {
+      "command": "npx",
+      "args": ["joplin-mcp-server", "--token", "your_joplin_token", "--port", "41184", "--host", "127.0.0.1"]
+    }
+  }
+}
+```
+
+**Using environment file:**
+
+```json
+{
+  "mcpServers": {
+    "joplin": {
+      "command": "npx",
+      "args": ["joplin-mcp-server", "--env-file", "/path/to/your/.env"]
+    }
   }
 }
 ```
@@ -501,15 +561,6 @@ Create a `.env.test.local` file with your test configuration, then run:
 ```bash
 npm test
 ```
-
-### Publishing to npm
-
-To make this package available via npx:
-
-1. Update the version in `package.json`
-2. Run `npm publish`
-
-Users can then run it with `npx joplin-mcp-server`
 
 ### Unlinking (if needed)
 
