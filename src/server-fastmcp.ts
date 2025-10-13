@@ -1,6 +1,14 @@
 import { FastMCP } from "fastmcp"
 import { z } from "zod"
+import { readFileSync } from "fs"
+import { join, dirname } from "path"
+import { fileURLToPath } from "url"
 import { JoplinServerManager, initializeJoplinManager } from "./server-core.js"
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+const packageJson = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf-8"))
+const VERSION = packageJson.version
 
 export interface FastMCPServerOptions {
   host: string
@@ -19,7 +27,7 @@ export function createFastMCPServer(options: FastMCPServerOptions): { server: Fa
   // Create FastMCP server
   const server = new FastMCP({
     name: "joplin",
-    version: "1.0.1",
+    version: VERSION,
     health: {
       enabled: true,
       path: "/health",
@@ -27,7 +35,7 @@ export function createFastMCPServer(options: FastMCPServerOptions): { server: Fa
       message: JSON.stringify({
         status: "healthy",
         service: "joplin-mcp-server",
-        version: "1.0.1",
+        version: VERSION,
         joplinPort: options.port,
         timestamp: new Date().toISOString(),
       }),
@@ -212,6 +220,8 @@ export async function startFastMCPServer(options: FastMCPServerOptions): Promise
     httpStream: {
       port,
       endpoint: endpoint as `/${string}`,
+      //stateless: true, // Allow multiple clients without session tracking
+      //enableJsonResponse: true, // Enable JSON response format
     },
   })
 
