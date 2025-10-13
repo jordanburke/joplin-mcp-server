@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "joplin": {
+      "command": "npx",
+      "args": ["joplin-mcp-server"],
+      "env": {
+        "JOPLIN_TOKEN": "${JOPLIN_TOKEN}"
+      }
+    }
+  }
+}

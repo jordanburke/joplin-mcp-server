@@ -2,10 +2,12 @@
 
 This is a Node.js implementation of an MCP (Model Context Protocol) server for Joplin.
 
-## Installation
+## Quick Start
+
+Install via npx (no installation required):
 
 ```bash
-npm install
+npx joplin-mcp-server --help
 ```
 
 ## Configuration
@@ -117,47 +119,33 @@ curl http://10.255.255.254:41184/ping
 - **Wrong IP**: Make sure you're using your actual Windows IP address
   - Check with `ipconfig` on Windows (look for IPv4 Address on your active network adapter)
 
-## Usage
-
-### Local Development
-
-Start the server:
-
-```bash
-npm start
-```
-
-You can also specify a custom environment file:
-
-```bash
-npm start -- --env-file .env.custom
-```
-
-### Using npx (Recommended)
-
-After publishing to npm, you can use npx to run the server without installation:
-
-```bash
-# Using command line arguments
-npx joplin-mcp-server --port 41184 --token your_joplin_token
-
-# Using environment file
-npx joplin-mcp-server --env-file /path/to/your/.env
-
-# Mixed approach (args override env file)
-npx joplin-mcp-server --env-file .env --port 41185
-```
-
-### Command Line Options
+## Command Line Options
 
 ```
 OPTIONS:
   --env-file <file>    Load environment variables from file
+  --host <hostname>    Joplin hostname or IP (default: 127.0.0.1)
   --port <port>        Joplin port (default: 41184)
   --token <token>      Joplin API token
   --transport <type>   Transport type: stdio (default) or http
   --http-port <port>   HTTP server port (default: 3000, only used with --transport http)
   --help, -h           Show help message
+```
+
+### Command Line Usage Examples
+
+```bash
+# Using command line arguments
+npx joplin-mcp-server --token your_joplin_token
+
+# Using environment file
+npx joplin-mcp-server --env-file /path/to/your/.env
+
+# WSL: Connect to Windows host
+npx joplin-mcp-server --host 192.168.0.40 --token your_token
+
+# HTTP mode (for testing with MCP Inspector)
+npx joplin-mcp-server --transport http --token your_token
 ```
 
 ### MCP Client Configuration
@@ -205,15 +193,17 @@ Restart Claude Desktop after updating the configuration.
 
 Claude Code supports environment variable expansion in `.mcp.json`.
 
-**Set environment variables in your shell** (add to `~/.bashrc` or `~/.zshrc`):
+**1. Set environment variables in your shell** (add to `~/.bashrc` or `~/.zshrc`):
 
 ```bash
 export JOPLIN_TOKEN="your_actual_token_here"
-export JOPLIN_PORT="41184"
-export JOPLIN_HOST="127.0.0.1"
+export JOPLIN_PORT="41184"        # Optional, defaults to 41184
+export JOPLIN_HOST="127.0.0.1"    # Optional, defaults to 127.0.0.1
 ```
 
-**Add to your `.mcp.json`**:
+**2. Use the included `.mcp.json` configuration**:
+
+The repository includes a working `.mcp.json` file that uses environment variable expansion:
 
 ```json
 {
@@ -222,27 +212,14 @@ export JOPLIN_HOST="127.0.0.1"
       "command": "npx",
       "args": ["joplin-mcp-server"],
       "env": {
-        "JOPLIN_TOKEN": "${JOPLIN_TOKEN}",
-        "JOPLIN_PORT": "${JOPLIN_PORT}",
-        "JOPLIN_HOST": "${JOPLIN_HOST}"
+        "JOPLIN_TOKEN": "${JOPLIN_TOKEN}"
       }
     }
   }
 }
 ```
 
-Or simply omit the `env` section and let the server inherit shell environment variables:
-
-```json
-{
-  "mcpServers": {
-    "joplin": {
-      "command": "npx",
-      "args": ["joplin-mcp-server"]
-    }
-  }
-}
-```
+The server will automatically use `JOPLIN_PORT` and `JOPLIN_HOST` from your shell environment, or use the defaults (127.0.0.1:41184).
 
 #### Other MCP Clients (Cursor, etc.)
 
@@ -292,26 +269,7 @@ Most MCP clients support environment variable expansion (`${VAR}` syntax).
 }
 ```
 
-### Legacy Usage (if installed locally)
-
-Usage in Augment Code:
-name: `joplin`
-command: `node /path/to/your/mcp-joplin/index.js --env-file /path/to/your/mcp-joplin/.env`
-
-Usage in mcp.json (cursor other tools)
-
-```json
-  "joplin":{
-      "command":"node",
-      "args":[
-        "/path/to/your/mcp-joplin/index.js",
-        "--env-file",
-        "/path/to/your/mcp-joplin/.env"
-      ]
-  }
-```
-
-### Logging
+## Logging
 
 The server logs all incoming commands and outgoing responses. Logs are stored in two places:
 
@@ -526,47 +484,36 @@ Successfully retrieved: 3
 
 ### Local Development Setup
 
-To test the npx command locally during development:
-
 ```bash
-# In the project root directory
-cd /path/to/mcp-joplin
-npm install
-npm link
+# Install dependencies
+pnpm install
+
+# Build the project
+pnpm build
+
+# Run tests
+pnpm test
+
+# Format code
+pnpm format
+
+# Run linter
+pnpm lint
+
+# Run validation (format + lint + test + build)
+pnpm validate
 ```
 
-After linking, you can test your local changes immediately:
+### Testing Local Changes
 
 ```bash
+# Link for local development
+npm link
+
 # Test the CLI
 npx joplin-mcp-server --help
-npx joplin-mcp-server --port 41184 --token your_token
 
-# Make code changes, then test again (no rebuild needed)
-npx joplin-mcp-server --help
-```
-
-### Making Changes
-
-1. Edit any `.js` files in the project
-2. Run tests: `npm test`
-3. Test the CLI: `npx joplin-mcp-server --help`
-
-No build step is required - changes are immediately available through the npm link.
-
-### Running Tests
-
-Create a `.env.test.local` file with your test configuration, then run:
-
-```bash
-npm test
-```
-
-### Unlinking (if needed)
-
-To remove the local link:
-
-```bash
+# Unlink when done
 npm unlink -g joplin-mcp-server
 ```
 

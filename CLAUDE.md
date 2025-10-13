@@ -8,35 +8,31 @@ This is a TypeScript MCP (Model Context Protocol) server for Joplin note-taking 
 
 ## Key Commands
 
-- **Build**: `npm run build` (compiles TypeScript to dist/)
-- **Development**: `npm start` (runs TypeScript directly with tsx)
-- **Production**: `npm run start:js` (runs compiled JavaScript)
-- **Type checking**: `npm run typecheck`
-- **Formatting**: `npm run format` (Prettier) / `npm run format:check` (check only)
-- **Clean build**: `npm run clean` (removes dist/)
-- **Testing**:
-  - `npm test` - Run all Vitest tests
-  - `npm run test:ui` - Run tests with UI
-  - `npm run test:run` - Run tests once
-  - `npm run test:coverage` - Generate coverage report
-  - Manual tool tests: `npm run test:manual:search`, `npm run test:manual:read-note`, etc.
-- **Publishing**: `npm run prepublishOnly` (clean + build)
-- **Start via npx**:
-  - `npx joplin-mcp-server --port 41184 --token your_token`
-  - `npx joplin-mcp-server --env-file /path/to/.env`
-- **Get help**: `npx joplin-mcp-server --help`
+- **Build**: `pnpm build` - Compiles TypeScript to dist/ (CommonJS format)
+- **Development**: `pnpm serve:dev:http` - Run in HTTP mode with hot reload
+- **Type checking**: `pnpm typecheck` - Validate TypeScript types
+- **Formatting**: `pnpm format` - Format code with Prettier
+- **Linting**: `pnpm lint` - Run ESLint with auto-fix
+- **Testing**: `pnpm test` - Run all Vitest tests
+- **Validation**: `pnpm validate` - Run format + lint + test + build
+- **CLI Usage**: `npx joplin-mcp-server --help` - Get help
 
 ## Architecture
 
 ### Core Components
 
-- **Main server** (`index.ts`): MCP server setup with tool registration and inline LoggingTransport class
-- **API Client** (`lib/joplin-api-client.ts`): HTTP client for Joplin REST API with pagination support
-- **Tools** (`lib/tools/`): Individual tool implementations that handle specific Joplin operations
-  - 11 tools: list-notebooks, search-notes, read-notebook, read-note, read-multinote, create-note, create-folder, edit-note, edit-folder, delete-note, delete-folder
-- **Logger** (`lib/logger.ts`): Custom logging with configurable levels and file output
-- **CLI Parser** (`lib/parse-args.ts`): Command-line argument processing
-- **CLI Entry** (`bin/cli.ts`): ESM-compatible shebang script for npx execution
+- **Main server** (`src/index.ts`): Entry point supporting stdio and HTTP transports
+- **Server Implementations**:
+  - `src/server-core.ts`: Core MCP server with stdio transport
+  - `src/server-fastmcp.ts`: FastMCP HTTP server with health checks and stateless mode
+- **API Client** (`src/lib/joplin-api-client.ts`): HTTP client for Joplin REST API with pagination
+- **Tools** (`src/lib/tools/`): 11 Joplin tools following consistent BaseTool pattern
+  - list-notebooks, search-notes, read-notebook, read-note, read-multinote
+  - create-note, create-folder, edit-note, edit-folder, delete-note, delete-folder
+- **CLI** (`src/bin.ts`): CLI entry point for npx execution
+- **Utilities**:
+  - `src/lib/parse-args.ts`: Command-line argument and environment variable parsing
+  - `src/lib/logger.ts`: Configurable logging with file output
 
 ### Tool Pattern
 
@@ -49,23 +45,24 @@ Each tool follows a consistent pattern:
 - Validates parameters using Zod schemas in the server registration
 - Includes parameter validation with helpful error messages (e.g., `validateId()`)
 
-### TypeScript Configuration
+### Build Configuration
 
-- Target: ES2022
-- Module: ESNext with Node resolution
-- Strict mode enabled with all strict checks
-- Path aliases: `@/*` maps to `./*` (project root)
-- Output directory: `./dist`
-- ES modules enabled (`"type": "module"` in package.json)
+- **Format**: CommonJS (`.js` files in dist/)
+- **TypeScript**: Target ES2022, strict mode enabled
+- **Builder**: tsup with dual entry points (index and bin)
+- **Output**: `dist/` directory
+- **Source maps**: Generated for debugging
 
 ### Environment Configuration
 
-Requires two environment variables:
+Environment variables (all optional with sensible defaults):
 
-- `JOPLIN_PORT`: Port where Joplin is running (default 41184)
-- `JOPLIN_TOKEN`: API token from Joplin's Web Clipper settings
+- `JOPLIN_HOST`: Joplin hostname/IP (default: 127.0.0.1)
+- `JOPLIN_PORT`: Joplin port (default: 41184)
+- `JOPLIN_TOKEN`: API token from Joplin Web Clipper (required)
+- `LOG_LEVEL`: Logging verbosity (debug, info, warn, error)
 
-Use `--env-file` flag to specify custom environment file location.
+Can be set via `.env` file, shell environment, or command-line arguments.
 
 ### Testing Strategy
 
@@ -87,13 +84,11 @@ Use `--env-file` flag to specify custom environment file location.
 
 ### Development Workflow
 
-1. Make changes to TypeScript files
-2. Run `npm run typecheck` to ensure type safety
-3. Run `npm test` to execute unit and integration tests
-4. Run `npm run format` to format code with Prettier
-5. Test manual tool operations with `npm run test:manual:*` commands
-6. Run `npm run build` before publishing
-7. Test CLI locally with `npm start` or `npm run start:js`
+1. Make changes to TypeScript files in `src/`
+2. Run `pnpm validate` to check everything (format + lint + test + build)
+3. Test HTTP mode: `pnpm serve:dev:http`
+4. Test with MCP Inspector at `http://localhost:3000/mcp`
+5. Link for local testing: `npm link && npx joplin-mcp-server --help`
 
 ### Code Style
 
