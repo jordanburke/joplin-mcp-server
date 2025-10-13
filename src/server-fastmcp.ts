@@ -3,6 +3,7 @@ import { z } from "zod"
 import { JoplinServerManager, initializeJoplinManager } from "./server-core.js"
 
 export interface FastMCPServerOptions {
+  host: string
   port: number
   token: string
   httpPort?: number
@@ -13,7 +14,7 @@ export function createFastMCPServer(options: FastMCPServerOptions): { server: Fa
   console.error("🚀 Initializing FastMCP server for Joplin...")
 
   // Initialize Joplin manager
-  const manager = initializeJoplinManager(options.port, options.token)
+  const manager = initializeJoplinManager(options.host, options.port, options.token)
 
   // Create FastMCP server
   const server = new FastMCP({
@@ -189,14 +190,15 @@ export async function startFastMCPServer(options: FastMCPServerOptions): Promise
   const { server, manager } = createFastMCPServer(options)
 
   // Check Joplin service availability
-  console.error("🔍 Checking Joplin service availability...")
+  console.error(`🔍 Checking Joplin service availability at ${options.host}:${options.port}...`)
   const available = await manager.checkService()
   if (!available) {
     console.error("❌ Joplin service is not available. Please ensure:")
     console.error("  1. Joplin is running")
     console.error("  2. Web Clipper is enabled (Tools > Options > Web Clipper)")
-    console.error(`  3. Joplin is running on port ${options.port}`)
+    console.error(`  3. Joplin is accessible at ${options.host}:${options.port}`)
     console.error("  4. The API token is correct")
+    console.error("\n💡 WSL users: Use --host flag with Windows IP (e.g., --host 172.20.208.1)")
     process.exit(1)
   }
   console.error("✅ Joplin service is available")

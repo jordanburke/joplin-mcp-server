@@ -13,12 +13,109 @@ npm install
 Create a `.env` file with the following variables:
 
 ```
+JOPLIN_HOST=127.0.0.1
 JOPLIN_PORT=41184
 JOPLIN_TOKEN=your_joplin_token
 ```
 
 You can find your Joplin token in the Joplin desktop app under:
 Tools > Options > Web Clipper
+
+### WSL (Windows Subsystem for Linux) Setup
+
+If you're running the MCP server in WSL and Joplin on Windows, you'll need to set up port forwarding because Joplin binds to 127.0.0.1 (localhost only) by default.
+
+#### Option 1: Windows Port Forwarding (Recommended)
+
+This is the simplest solution that requires no Joplin configuration changes and persists across reboots.
+
+**On Windows (PowerShell as Administrator)**:
+
+```powershell
+# Forward port 41184 to allow WSL access to Joplin
+netsh interface portproxy add v4tov4 listenport=41184 listenaddress=0.0.0.0 connectport=41184 connectaddress=127.0.0.1
+
+# Verify the port forward is active
+netsh interface portproxy show all
+```
+
+**Configure your .env file in WSL**:
+
+```bash
+# Use your Windows machine's LAN IP address
+JOPLIN_HOST=192.168.0.40  # Replace with your actual Windows IP
+JOPLIN_PORT=41184
+JOPLIN_TOKEN=your_joplin_token
+```
+
+**To find your Windows IP address**:
+
+```bash
+# From WSL
+cat /etc/resolv.conf | grep nameserver | awk '{print $2}'
+# This gives the WSL bridge IP (e.g., 10.255.255.254)
+
+# Or use your Windows LAN IP (usually 192.168.x.x)
+# Check in Windows: ipconfig (look for IPv4 Address)
+```
+
+**To remove the port forward later** (if needed):
+
+```powershell
+netsh interface portproxy delete v4tov4 listenport=41184 listenaddress=0.0.0.0
+```
+
+**Note**: This port forwarding rule persists across reboots - you only need to set it up once!
+
+#### Option 2: Configure Joplin to Listen on All Interfaces (Alternative)
+
+If you prefer to configure Joplin directly instead of using port forwarding:
+
+1. **Find your Joplin configuration file**:
+   - Windows: `C:\Users\YourUsername\.config\joplin-desktop\settings.json`
+
+2. **Add this configuration to settings.json**:
+
+   ```json
+   {
+     "clipperServer.host": "0.0.0.0"
+   }
+   ```
+
+3. **Restart Joplin** for the changes to take effect
+
+4. **Set your .env file in WSL**:
+   ```
+   JOPLIN_HOST=10.255.255.254  # WSL bridge IP from /etc/resolv.conf
+   JOPLIN_PORT=41184
+   JOPLIN_TOKEN=your_joplin_token
+   ```
+
+**Security Note**: This makes Joplin accessible on your entire local network. The API token is still required for all operations.
+
+#### Troubleshooting WSL Connectivity
+
+**Test connectivity from WSL**:
+
+```bash
+# Test if Joplin is reachable from WSL
+curl http://192.168.0.40:41184/ping
+# Should return: JoplinClipperServer
+
+# If using WSL bridge IP:
+curl http://10.255.255.254:41184/ping
+```
+
+**Common issues**:
+
+- **Connection refused**: Port forwarding not set up or Joplin not running
+  - Verify port forward: `netsh interface portproxy show all` (on Windows)
+  - Verify Joplin is running with Web Clipper enabled
+- **Connection timeout**: Windows Firewall is blocking the port
+  - Open Windows Defender Firewall
+  - Add Inbound Rule for TCP port 41184
+- **Wrong IP**: Make sure you're using your actual Windows IP address
+  - Check with `ipconfig` on Windows (look for IPv4 Address on your active network adapter)
 
 ## Usage
 

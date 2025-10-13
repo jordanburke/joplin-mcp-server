@@ -12,7 +12,7 @@ import { initializeJoplinManager } from "./server-core.js"
 
 // Parse command line arguments and check for transport mode
 const parsedArgs = parseArgs()
-const { transport, httpPort } = parsedArgs
+const { transport, httpPort, host } = parsedArgs
 
 // Check if HTTP transport is requested
 const isHttpMode = transport === "http"
@@ -38,6 +38,7 @@ const joplinToken = process.env.JOPLIN_TOKEN
 if (isHttpMode) {
   console.error("🌐 Starting HTTP transport mode with FastMCP...")
   startFastMCPServer({
+    host,
     port: joplinPort,
     token: joplinToken,
     httpPort,
@@ -49,12 +50,12 @@ if (isHttpMode) {
 } else {
   // Default: Use stdio transport with traditional MCP SDK
   console.error("📡 Starting stdio transport mode...")
-  void startStdioServer(joplinPort, joplinToken)
+  void startStdioServer(host, joplinPort, joplinToken)
 }
 
-async function startStdioServer(port: number, token: string): Promise<void> {
+async function startStdioServer(host: string, port: number, token: string): Promise<void> {
   // Initialize Joplin manager
-  const manager = initializeJoplinManager(port, token)
+  const manager = initializeJoplinManager(host, port, token)
 
   // Create the MCP server using the newer SDK pattern
   const server = new Server(

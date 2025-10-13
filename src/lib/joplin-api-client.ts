@@ -1,6 +1,7 @@
 import axios, { AxiosResponse } from "axios"
 
 interface JoplinAPIClientConfig {
+  host?: string
   port?: number
   token: string
 }
@@ -19,8 +20,8 @@ class JoplinAPIClient {
   private readonly baseURL: string
   private readonly token: string
 
-  constructor({ port = 41184, token }: JoplinAPIClientConfig) {
-    this.baseURL = `http://127.0.0.1:${port}`
+  constructor({ host = "127.0.0.1", port = 41184, token }: JoplinAPIClientConfig) {
+    this.baseURL = `http://${host}:${port}`
     this.token = token
   }
 

@@ -5,19 +5,23 @@ export interface ParsedArgs {
   remainingArgs: string[]
   transport: "stdio" | "http"
   httpPort: number
+  host: string
 }
 
 function parseArgs(): ParsedArgs {
   const args = process.argv.slice(2)
   let transport: "stdio" | "http" = "stdio"
   let httpPort = 3000
+  let host = "127.0.0.1"
 
   // Load environment variables without dotenv debug output (for MCP stdio compatibility)
   const loadEnvFile = (envPath: string) => {
     try {
       if (fs.existsSync(envPath)) {
+        process.stderr.write(`📄 Loading environment from: ${envPath}\n`)
         const envContent = fs.readFileSync(envPath, "utf-8")
         const envLines = envContent.split("\n")
+        const loadedVars: string[] = []
 
         for (const line of envLines) {
           const trimmedLine = line.trim()
@@ -27,13 +31,21 @@ function parseArgs(): ParsedArgs {
               const value = valueParts.join("=").replace(/^["']|["']$/g, "")
               if (!process.env[key.trim()]) {
                 process.env[key.trim()] = value
+                // Only show key name, not the actual value for security
+                loadedVars.push(key.trim())
               }
             }
           }
         }
+
+        if (loadedVars.length > 0) {
+          process.stderr.write(`✅ Loaded variables: ${loadedVars.join(", ")}\n`)
+        }
+      } else {
+        process.stderr.write(`⚠️  Environment file not found: ${envPath}\n`)
       }
-    } catch {
-      // Silently ignore env file errors
+    } catch (error: unknown) {
+      process.stderr.write(`❌ Error loading environment file: ${error}\n`)
     }
   }
 
@@ -91,6 +103,26 @@ function parseArgs(): ParsedArgs {
     process.env.JOPLIN_TOKEN = token
   }
 
+  // Handle --host
+  if (args.includes("--host")) {
+    const hostIndex = args.indexOf("--host")
+    const hostValue = args[hostIndex + 1]
+
+    if (!hostValue || hostValue.startsWith("--")) {
+      process.stderr.write("Error: --host requires a hostname or IP address\n")
+      process.exit(1)
+    }
+
+    // Remove the --host and its value from args
+    args.splice(hostIndex, 2)
+
+    // Set host variable
+    host = hostValue
+  } else if (process.env.JOPLIN_HOST) {
+    // Use environment variable if set
+    host = process.env.JOPLIN_HOST
+  }
+
   // Handle --transport
   if (args.includes("--transport")) {
     const transportIndex = args.indexOf("--transport")
@@ -143,6 +175,7 @@ USAGE:
 
 OPTIONS:
   --env-file <file>    Load environment variables from file
+  --host <hostname>    Joplin hostname or IP (default: 127.0.0.1)
   --port <port>        Joplin port (default: 41184)
   --token <token>      Joplin API token
   --transport <type>   Transport type: stdio (default) or http
@@ -150,6 +183,7 @@ OPTIONS:
   --help, -h           Show this help message
 
 ENVIRONMENT VARIABLES:
+  JOPLIN_HOST          Joplin hostname or IP (default: 127.0.0.1)
   JOPLIN_PORT          Joplin port (default: 41184)
   JOPLIN_TOKEN         Joplin API token (required)
   LOG_LEVEL           Log level: debug, info, warn, error (default: info)
@@ -163,6 +197,11 @@ EXAMPLES:
   joplin-mcp-server --transport http --http-port 3000 --token your_token
   joplin-mcp-server --env-file .env.local --transport http
 
+  # WSL - Connect to Windows host
+  joplin-mcp-server --host 172.20.208.1 --token your_token
+  export JOPLIN_HOST=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2}')
+  joplin-mcp-server --transport http
+
 Find your Joplin token in: Tools > Options > Web Clipper
 `)
     process.exit(0)
@@ -172,6 +211,7 @@ Find your Joplin token in: Tools > Options > Web Clipper
     remainingArgs: args,
     transport,
     httpPort,
+    host,
   }
 }
 

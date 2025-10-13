@@ -14,6 +14,7 @@ import {
 } from "./lib/tools/index.js"
 
 export interface JoplinServerConfig {
+  host: string
   port: number
   token: string
 }
@@ -36,6 +37,7 @@ export class JoplinServerManager {
 
   constructor(config: JoplinServerConfig) {
     this.apiClient = new JoplinAPIClient({
+      host: config.host,
       port: config.port,
       token: config.token,
     })
@@ -130,6 +132,6 @@ export class JoplinServerManager {
   }
 }
 
-export function initializeJoplinManager(port: number, token: string): JoplinServerManager {
-  return new JoplinServerManager({ port, token })
+export function initializeJoplinManager(host: string, port: number, token: string): JoplinServerManager {
+  return new JoplinServerManager({ host, port, token })
 }
