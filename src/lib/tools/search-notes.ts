@@ -77,8 +77,8 @@ class SearchNotes extends BaseTool {
       })
 
       return resultLines.join("\n")
-    } catch (_error) {
-      return this.formatError(_error, "searching notes")
+    } catch (error: unknown) {
+      return this.formatError(error, "searching notes")
     }
   }
 }

@@ -101,13 +101,7 @@ Alternative using command-line arguments with environment expansion:
   "mcpServers": {
     "joplin": {
       "command": "npx",
-      "args": [
-        "joplin-mcp-server",
-        "--port",
-        "${JOPLIN_PORT}",
-        "--token",
-        "${JOPLIN_TOKEN}"
-      ],
+      "args": ["joplin-mcp-server", "--port", "${JOPLIN_PORT}", "--token", "${JOPLIN_TOKEN}"],
       "env": {
         "JOPLIN_PORT": "41184",
         "JOPLIN_TOKEN": "your_actual_token_here"

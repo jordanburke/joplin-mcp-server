@@ -98,6 +98,7 @@ Use `--env-file` flag to specify custom environment file location.
 ### Code Style
 
 The project uses Prettier with the following configuration:
+
 - No semicolons
 - Trailing commas
 - Double quotes

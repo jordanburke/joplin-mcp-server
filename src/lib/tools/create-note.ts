@@ -9,9 +9,7 @@ interface CreateNoteOptions {
   image_data_url?: string | undefined
 }
 
-interface CreateNoteResponse extends JoplinNote {
-  // Additional fields that might be returned on creation
-}
+type CreateNoteResponse = JoplinNote
 
 class CreateNote extends BaseTool {
   async call(options: CreateNoteOptions): Promise<string> {
@@ -58,7 +56,7 @@ class CreateNote extends BaseTool {
           if (notebook && notebook.title) {
             notebookInfo = `"${notebook.title}" (notebook_id: "${createdNote.parent_id}")`
           }
-        } catch (_error) {
+        } catch {
           // Continue even if we can't get notebook info
           notebookInfo = `Notebook ID: ${createdNote.parent_id}`
         }

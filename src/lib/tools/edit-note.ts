@@ -11,9 +11,7 @@ interface EditNoteOptions {
   todo_due?: number | undefined
 }
 
-interface EditNoteResponse extends JoplinNote {
-  // Additional fields that might be returned on edit
-}
+type EditNoteResponse = JoplinNote
 
 class EditNote extends BaseTool {
   async call(options: EditNoteOptions): Promise<string> {
@@ -87,7 +85,7 @@ class EditNote extends BaseTool {
           if (oldNotebook?.title) {
             oldNotebookInfo = `"${oldNotebook.title}"`
           }
-        } catch (_error) {
+        } catch {
           oldNotebookInfo = `Notebook ID: ${currentNote.parent_id}`
         }
       }
@@ -100,7 +98,7 @@ class EditNote extends BaseTool {
           if (newNotebook?.title) {
             newNotebookInfo = `"${newNotebook.title}"`
           }
-        } catch (_error) {
+        } catch {
           newNotebookInfo = `Notebook ID: ${updatedNote.parent_id}`
         }
       } else if (updatedNote.parent_id) {

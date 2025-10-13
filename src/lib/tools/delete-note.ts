@@ -46,7 +46,7 @@ class DeleteNote extends BaseTool {
           if (notebook?.title) {
             notebookInfo = `"${notebook.title}" (notebook_id: "${noteToDelete.parent_id}")`
           }
-        } catch (_error) {
+        } catch {
           notebookInfo = `Notebook ID: ${noteToDelete.parent_id}`
         }
       }

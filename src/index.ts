@@ -393,8 +393,8 @@ async function startStdioServer(port: number, token: string): Promise<void> {
   try {
     await server.connect(transport)
     console.error("✅ MCP server started and ready to receive commands")
-  } catch (_error) {
-    process.stderr.write(`Failed to start MCP server: ${_error instanceof Error ? _error.message : String(_error)}\n`)
+  } catch (error: unknown) {
+    process.stderr.write(`Failed to start MCP server: ${error instanceof Error ? error.message : String(error)}\n`)
     process.exit(1)
   }
 }

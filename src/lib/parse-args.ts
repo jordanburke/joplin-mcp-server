@@ -1,9 +1,5 @@
-import { fileURLToPath } from "url"
-import { dirname, resolve } from "path"
+import { resolve } from "path"
 import fs from "fs"
-
-const __filename = fileURLToPath(import.meta.url)
-const ___dirname = dirname(__filename)
 
 export interface ParsedArgs {
   remainingArgs: string[]
@@ -36,7 +32,7 @@ function parseArgs(): ParsedArgs {
           }
         }
       }
-    } catch (_error) {
+    } catch {
       // Silently ignore env file errors
     }
   }

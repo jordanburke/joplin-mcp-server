@@ -54,7 +54,7 @@ class CreateFolder extends BaseTool {
           if (parentNotebook && parentNotebook.title) {
             parentInfo = `Inside "${parentNotebook.title}" (notebook_id: "${createdFolder.parent_id}")`
           }
-        } catch (_error) {
+        } catch {
           // Continue even if we can't get parent info
           parentInfo = `Parent notebook ID: ${createdFolder.parent_id}`
         }

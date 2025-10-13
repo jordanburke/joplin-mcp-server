@@ -30,8 +30,8 @@ class ReadNote extends BaseTool {
           if (notebook && notebook.title) {
             notebookInfo = `"${notebook.title}" (notebook_id: "${note.parent_id}")`
           }
-        } catch (_error) {
-          process.stderr.write(`Error fetching notebook info: ${_error}\n`)
+        } catch (err: unknown) {
+          process.stderr.write(`Error fetching notebook info: ${err}\n`)
           // Continue even if we can't get the notebook info
         }
       }
@@ -78,12 +78,12 @@ class ReadNote extends BaseTool {
       resultLines.push('- To search for more notes: search_notes query="your search term"')
 
       return resultLines.join("\n")
-    } catch (_error: any) {
-      if (_error.response && _error.response.status === 404) {
+    } catch (error: any) {
+      if (error.response && error.response.status === 404) {
         return `Note with ID "${noteId}" not found.\n\nThis might happen if:\n1. The ID is incorrect\n2. You're using a notebook ID instead of a note ID\n3. The note has been deleted\n\nUse search_notes to find notes and their IDs.`
       }
       return (
-        this.formatError(_error, "reading note") +
+        this.formatError(error, "reading note") +
         `\n\nMake sure you're using a valid note ID.\nUse search_notes to find notes and their IDs.`
       )
     }

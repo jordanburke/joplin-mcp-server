@@ -26,7 +26,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'pnpm'
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -60,7 +60,7 @@ jobs:
         run: |
           echo "Checking build output files..."
           ls -la dist/
-          
+
           # Check main entry files
           if [ ! -f "dist/index.js" ]; then
             echo "Build failed: dist/index.js not found"
@@ -70,13 +70,13 @@ jobs:
             echo "Build failed: dist/index.d.ts not found"
             exit 1
           fi
-          
+
           # Verify the file is executable
           if [ ! -x "dist/index.js" ]; then
             echo "Build failed: dist/index.js is not executable"
             exit 1
           fi
-          
+
           echo "✅ All required build files are present"
 
   publish-dry-run:
@@ -92,8 +92,8 @@ jobs:
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22.x'
-          cache: 'pnpm'
+          node-version: "22.x"
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
