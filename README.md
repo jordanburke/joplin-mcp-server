@@ -1,10 +1,21 @@
 # Joplin MCP Server
+[![smithery badge](https://smithery.ai/badge/@jordanburke/joplin-mcp-server)](https://smithery.ai/server/@jordanburke/joplin-mcp-server)
 
 This is a Node.js implementation of an MCP (Model Context Protocol) server for Joplin.
 
 ## Quick Start
 
 Install via npx (no installation required):
+
+### Installing via Smithery
+
+To install Joplin MCP Server for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@jordanburke/joplin-mcp-server):
+
+```bash
+npx -y @smithery/cli install @jordanburke/joplin-mcp-server --client claude
+```
+
+### Local Development
 
 ```bash
 npx joplin-mcp-server --help
