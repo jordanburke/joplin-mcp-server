@@ -2,14 +2,15 @@
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
-import { ListToolsRequestSchema, CallToolRequestSchema, type CallToolRequest } from "@modelcontextprotocol/sdk/types.js"
+import { type CallToolRequest, CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js"
 import fs from "fs"
 import path from "path"
 import { fileURLToPath } from "url"
-import parseArgs from "./lib/parse-args.js"
-import { startFastMCPServer } from "./server-fastmcp.js"
-import { initializeJoplinManager } from "./server-core.js"
+
 import JoplinAPIClient from "./lib/joplin-api-client.js"
+import parseArgs from "./lib/parse-args.js"
+import { initializeJoplinManager } from "./server-core.js"
+import { startFastMCPServer } from "./server-fastmcp.js"
 
 // Parse command line arguments and check for transport mode
 const parsedArgs = parseArgs()

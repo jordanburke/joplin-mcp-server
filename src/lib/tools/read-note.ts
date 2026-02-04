@@ -1,4 +1,4 @@
-import BaseTool, { JoplinNote, JoplinFolder } from "./base-tool.js"
+import BaseTool, { JoplinFolder, JoplinNote } from "./base-tool.js"
 
 class ReadNote extends BaseTool {
   async call(noteId: string): Promise<string> {

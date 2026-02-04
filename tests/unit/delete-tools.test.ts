@@ -9,9 +9,13 @@ const mockApiClient = {
   delete: vi.fn(),
 }
 
-vi.mock("../../src/lib/joplin-api-client.js", () => ({
-  default: vi.fn(() => mockApiClient),
-}))
+vi.mock("../../src/lib/joplin-api-client.js", function () {
+  return {
+    default: vi.fn(function () {
+      return mockApiClient
+    }),
+  }
+})
 
 describe("Delete Tools", () => {
   let deleteNote: DeleteNote

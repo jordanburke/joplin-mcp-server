@@ -9,9 +9,13 @@ const mockApiClient = {
   get: vi.fn(),
 }
 
-vi.mock("../../src/lib/joplin-api-client.js", () => ({
-  default: vi.fn(() => mockApiClient),
-}))
+vi.mock("../../src/lib/joplin-api-client.js", function () {
+  return {
+    default: vi.fn(function () {
+      return mockApiClient
+    }),
+  }
+})
 
 describe("Create Tools", () => {
   let createNote: CreateNote

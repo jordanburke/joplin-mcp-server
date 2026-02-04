@@ -1,5 +1,5 @@
-import { resolve } from "path"
 import fs from "fs"
+import { resolve } from "path"
 
 export interface ParsedArgs {
   remainingArgs: string[]

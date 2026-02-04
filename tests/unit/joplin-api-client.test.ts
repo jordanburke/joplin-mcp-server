@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest"
 import JoplinAPIClient from "../../src/lib/joplin-api-client.js"
 
 // Mock axios
-vi.mock("axios", () => {
+vi.mock("axios", function () {
   const mockAxios = {
     get: vi.fn(),
     post: vi.fn(),
@@ -191,7 +191,7 @@ describe("JoplinAPIClient", () => {
   describe("discoverPort", () => {
     it("should find Joplin on a specific port when scanning in parallel", async () => {
       // Mock returns Joplin response only for port 41186
-      ;(axios.get as any).mockImplementation((url: string) => {
+      ;(axios.get as any).mockImplementation(function (url: string) {
         if (url === "http://127.0.0.1:41186/ping") {
           return Promise.resolve({ status: 200, data: "JoplinClipperServer" })
         }
@@ -217,7 +217,7 @@ describe("JoplinAPIClient", () => {
 
     it("should ignore ports with non-Joplin responses", async () => {
       // Mock: port 41184 returns wrong response, port 41185 is Joplin
-      ;(axios.get as any).mockImplementation((url: string) => {
+      ;(axios.get as any).mockImplementation(function (url: string) {
         if (url === "http://127.0.0.1:41184/ping") {
           return Promise.resolve({ status: 200, data: "SomeOtherServer" })
         }
@@ -234,7 +234,7 @@ describe("JoplinAPIClient", () => {
 
     it("should return first port if it has Joplin", async () => {
       // Mock: all ports return Joplin response
-      ;(axios.get as any).mockImplementation((url: string) => {
+      ;(axios.get as any).mockImplementation(function (url: string) {
         if (url.includes("/ping")) {
           return Promise.resolve({ status: 200, data: "JoplinClipperServer" })
         }
@@ -251,7 +251,7 @@ describe("JoplinAPIClient", () => {
     })
 
     it("should use custom host and timeout", async () => {
-      ;(axios.get as any).mockImplementation((url: string) => {
+      ;(axios.get as any).mockImplementation(function (url: string) {
         if (url === "http://192.168.1.100:41184/ping") {
           return Promise.resolve({ status: 200, data: "JoplinClipperServer" })
         }
@@ -265,7 +265,7 @@ describe("JoplinAPIClient", () => {
     })
 
     it("should use default values for maxAttempts and timeout", async () => {
-      ;(axios.get as any).mockImplementation((url: string) => {
+      ;(axios.get as any).mockImplementation(function (url: string) {
         if (url === "http://127.0.0.1:41184/ping") {
           return Promise.resolve({ status: 200, data: "JoplinClipperServer" })
         }

@@ -131,7 +131,7 @@ describe("Joplin Integration Tests", () => {
       const result = await tool.call("invalid-notebook-id")
 
       expect(typeof result).toBe("string")
-      expect(result).toContain("Error:")
+      expect(result).toContain("not found")
     })
   })
 })

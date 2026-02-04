@@ -1,9 +1,10 @@
 import { FastMCP } from "fastmcp"
-import { z } from "zod"
 import { readFileSync } from "fs"
-import { join, dirname } from "path"
+import { dirname, join } from "path"
 import { fileURLToPath } from "url"
-import { JoplinServerManager, initializeJoplinManager } from "./server-core.js"
+import { z } from "zod"
+
+import { initializeJoplinManager, JoplinServerManager } from "./server-core.js"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)

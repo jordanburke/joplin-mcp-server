@@ -1,16 +1,16 @@
 import JoplinAPIClient from "./lib/joplin-api-client.js"
 import {
-  ListNotebooks,
-  SearchNotes,
-  ReadNotebook,
-  ReadNote,
-  ReadMultiNote,
-  CreateNote,
   CreateFolder,
-  EditNote,
-  EditFolder,
-  DeleteNote,
+  CreateNote,
   DeleteFolder,
+  DeleteNote,
+  EditFolder,
+  EditNote,
+  ListNotebooks,
+  ReadMultiNote,
+  ReadNote,
+  ReadNotebook,
+  SearchNotes,
 } from "./lib/tools/index.js"
 
 export interface JoplinServerConfig {
