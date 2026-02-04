@@ -9,18 +9,14 @@ import { fileURLToPath } from "url"
 import parseArgs from "./lib/parse-args.js"
 import { startFastMCPServer } from "./server-fastmcp.js"
 import { initializeJoplinManager } from "./server-core.js"
+import JoplinAPIClient from "./lib/joplin-api-client.js"
 
 // Parse command line arguments and check for transport mode
 const parsedArgs = parseArgs()
-const { transport, httpPort, host } = parsedArgs
+const { transport, httpPort, host, portExplicitlySet } = parsedArgs
 
 // Check if HTTP transport is requested
 const isHttpMode = transport === "http"
-
-// Set default port if not specified
-if (!process.env.JOPLIN_PORT) {
-  process.env.JOPLIN_PORT = "41184"
-}
 
 // Check for required environment variables
 if (!process.env.JOPLIN_TOKEN) {
@@ -31,27 +27,55 @@ if (!process.env.JOPLIN_TOKEN) {
   process.exit(1)
 }
 
-const joplinPort = parseInt(process.env.JOPLIN_PORT, 10)
 const joplinToken = process.env.JOPLIN_TOKEN
 
-// If HTTP mode is requested, start FastMCP server
-if (isHttpMode) {
-  console.error("🌐 Starting HTTP transport mode with FastMCP...")
-  startFastMCPServer({
-    host,
-    port: joplinPort,
-    token: joplinToken,
-    httpPort,
-    endpoint: "/mcp",
-  }).catch((error) => {
-    console.error("Failed to start FastMCP server:", error)
+/**
+ * Resolve the Joplin port - either use explicit port or auto-discover
+ */
+async function resolveJoplinPort(): Promise<number> {
+  if (portExplicitlySet && process.env.JOPLIN_PORT) {
+    const port = parseInt(process.env.JOPLIN_PORT, 10)
+    process.stderr.write(`📍 Using explicit Joplin port: ${port}\n`)
+    return port
+  }
+
+  // Auto-discover port
+  const discoveredPort = await JoplinAPIClient.discoverPort(host)
+  if (discoveredPort === null) {
+    process.stderr.write("❌ Could not find a running Joplin instance.\n")
+    process.stderr.write("Please ensure:\n")
+    process.stderr.write("  1. Joplin is running\n")
+    process.stderr.write("  2. Web Clipper is enabled (Tools > Options > Web Clipper)\n")
+    process.stderr.write("  3. Or specify port explicitly with --port <port>\n")
     process.exit(1)
-  })
-} else {
-  // Default: Use stdio transport with traditional MCP SDK
-  console.error("📡 Starting stdio transport mode...")
-  void startStdioServer(host, joplinPort, joplinToken)
+  }
+
+  return discoveredPort
 }
+
+// Main startup logic
+async function main(): Promise<void> {
+  const joplinPort = await resolveJoplinPort()
+
+  if (isHttpMode) {
+    console.error("🌐 Starting HTTP transport mode with FastMCP...")
+    await startFastMCPServer({
+      host,
+      port: joplinPort,
+      token: joplinToken,
+      httpPort,
+      endpoint: "/mcp",
+    })
+  } else {
+    console.error("📡 Starting stdio transport mode...")
+    await startStdioServer(host, joplinPort, joplinToken)
+  }
+}
+
+main().catch((error) => {
+  console.error("Failed to start MCP server:", error)
+  process.exit(1)
+})
 
 async function startStdioServer(host: string, port: number, token: string): Promise<void> {
   // Initialize Joplin manager

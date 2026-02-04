@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "joplin": {
-      "command": "npx",
-      "args": ["joplin-mcp-server"],
+      "command": "node",
+      "args": ["dist/bin.js"],
       "env": {
         "JOPLIN_TOKEN": "${JOPLIN_TOKEN}"
       }

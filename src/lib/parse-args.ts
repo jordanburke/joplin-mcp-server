@@ -6,6 +6,7 @@ export interface ParsedArgs {
   transport: "stdio" | "http"
   httpPort: number
   host: string
+  portExplicitlySet: boolean
 }
 
 function parseArgs(): ParsedArgs {
@@ -13,6 +14,7 @@ function parseArgs(): ParsedArgs {
   let transport: "stdio" | "http" = "stdio"
   let httpPort = 3000
   let host = "127.0.0.1"
+  let portExplicitlySet = false
 
   // Load environment variables without dotenv debug output (for MCP stdio compatibility)
   const loadEnvFile = (envPath: string) => {
@@ -84,6 +86,10 @@ function parseArgs(): ParsedArgs {
 
     // Set environment variable
     process.env.JOPLIN_PORT = port
+    portExplicitlySet = true
+  } else if (process.env.JOPLIN_PORT) {
+    // Port was set via environment variable
+    portExplicitlySet = true
   }
 
   // Handle --token
@@ -176,7 +182,7 @@ USAGE:
 OPTIONS:
   --env-file <file>    Load environment variables from file
   --host <hostname>    Joplin hostname or IP (default: 127.0.0.1)
-  --port <port>        Joplin port (default: 41184)
+  --port <port>        Joplin port (auto-discovers if not set, default start: 41184)
   --token <token>      Joplin API token
   --transport <type>   Transport type: stdio (default) or http
   --http-port <port>   HTTP server port (default: 3000, only used with --transport http)
@@ -184,12 +190,19 @@ OPTIONS:
 
 ENVIRONMENT VARIABLES:
   JOPLIN_HOST          Joplin hostname or IP (default: 127.0.0.1)
-  JOPLIN_PORT          Joplin port (default: 41184)
+  JOPLIN_PORT          Joplin port (auto-discovers if not set)
   JOPLIN_TOKEN         Joplin API token (required)
   LOG_LEVEL           Log level: debug, info, warn, error (default: info)
 
+PORT AUTO-DISCOVERY:
+  If --port or JOPLIN_PORT is not set, the server will scan ports 41184-41203
+  to find a running Joplin instance automatically.
+
 EXAMPLES:
-  # Stdio transport (default, for Claude Desktop)
+  # Auto-discover Joplin port (recommended)
+  joplin-mcp-server --token your_token
+
+  # Explicit port (skips auto-discovery)
   joplin-mcp-server --port 41184 --token your_token
   joplin-mcp-server --env-file /path/to/.env
 
@@ -212,6 +225,7 @@ Find your Joplin token in: Tools > Options > Web Clipper
     transport,
     httpPort,
     host,
+    portExplicitlySet,
   }
 }
 

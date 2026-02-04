@@ -25,6 +25,49 @@ class JoplinAPIClient {
     this.token = token
   }
 
+  /**
+   * Discover a running Joplin instance by scanning a range of ports in parallel.
+   * Uses the /ping endpoint to detect Joplin Web Clipper service.
+   *
+   * @param host - The hostname to scan (default: 127.0.0.1)
+   * @param startPort - The port to start scanning from (default: 41184)
+   * @param maxAttempts - The maximum number of ports to try (default: 10)
+   * @param timeout - Timeout in milliseconds per port check (default: 300)
+   * @returns The first port with a running Joplin instance, or null if none found
+   */
+  static async discoverPort(
+    host: string = "127.0.0.1",
+    startPort: number = 41184,
+    maxAttempts: number = 10,
+    timeout: number = 300,
+  ): Promise<number | null> {
+    const endPort = startPort + maxAttempts - 1
+    process.stderr.write(`🔍 Scanning for Joplin on ports ${startPort}-${endPort}...\n`)
+
+    const ports = Array.from({ length: maxAttempts }, (_, i) => startPort + i)
+
+    // Check all ports in parallel
+    const checks = ports.map(async (port) => {
+      try {
+        const response: AxiosResponse<string> = await axios.get(`http://${host}:${port}/ping`, { timeout })
+        if (response.status === 200 && response.data === "JoplinClipperServer") {
+          return port
+        }
+      } catch {
+        // Port not available
+      }
+      throw new Error("Not Joplin")
+    })
+
+    try {
+      const port = await Promise.any(checks)
+      process.stderr.write(`✅ Found Joplin on port ${port}\n`)
+      return port
+    } catch {
+      return null
+    }
+  }
+
   async serviceAvailable(): Promise<boolean> {
     try {
       const response: AxiosResponse<string> = await axios.get(`${this.baseURL}/ping`)

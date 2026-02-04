@@ -187,4 +187,97 @@ describe("JoplinAPIClient", () => {
       await expect(client.post("/notes", {})).rejects.toThrow("Server error")
     })
   })
+
+  describe("discoverPort", () => {
+    it("should find Joplin on a specific port when scanning in parallel", async () => {
+      // Mock returns Joplin response only for port 41186
+      ;(axios.get as any).mockImplementation((url: string) => {
+        if (url === "http://127.0.0.1:41186/ping") {
+          return Promise.resolve({ status: 200, data: "JoplinClipperServer" })
+        }
+        return Promise.reject(new Error("Connection refused"))
+      })
+
+      const result = await JoplinAPIClient.discoverPort("127.0.0.1", 41184, 5, 300)
+
+      expect(result).toBe(41186)
+      // All 5 ports are checked in parallel
+      expect(axios.get).toHaveBeenCalledTimes(5)
+    })
+
+    it("should return null when no Joplin found", async () => {
+      ;(axios.get as any).mockRejectedValue(new Error("Connection refused"))
+
+      const result = await JoplinAPIClient.discoverPort("127.0.0.1", 41184, 3, 300)
+
+      expect(result).toBeNull()
+      // All ports are checked in parallel
+      expect(axios.get).toHaveBeenCalledTimes(3)
+    })
+
+    it("should ignore ports with non-Joplin responses", async () => {
+      // Mock: port 41184 returns wrong response, port 41185 is Joplin
+      ;(axios.get as any).mockImplementation((url: string) => {
+        if (url === "http://127.0.0.1:41184/ping") {
+          return Promise.resolve({ status: 200, data: "SomeOtherServer" })
+        }
+        if (url === "http://127.0.0.1:41185/ping") {
+          return Promise.resolve({ status: 200, data: "JoplinClipperServer" })
+        }
+        return Promise.reject(new Error("Connection refused"))
+      })
+
+      const result = await JoplinAPIClient.discoverPort("127.0.0.1", 41184, 5, 300)
+
+      expect(result).toBe(41185)
+    })
+
+    it("should return first port if it has Joplin", async () => {
+      // Mock: all ports return Joplin response
+      ;(axios.get as any).mockImplementation((url: string) => {
+        if (url.includes("/ping")) {
+          return Promise.resolve({ status: 200, data: "JoplinClipperServer" })
+        }
+        return Promise.reject(new Error("Connection refused"))
+      })
+
+      const result = await JoplinAPIClient.discoverPort("127.0.0.1", 41184, 5, 300)
+
+      // Should return any valid Joplin port (first one to resolve wins in parallel)
+      expect(result).toBeGreaterThanOrEqual(41184)
+      expect(result).toBeLessThanOrEqual(41188)
+      // All 5 ports are checked in parallel
+      expect(axios.get).toHaveBeenCalledTimes(5)
+    })
+
+    it("should use custom host and timeout", async () => {
+      ;(axios.get as any).mockImplementation((url: string) => {
+        if (url === "http://192.168.1.100:41184/ping") {
+          return Promise.resolve({ status: 200, data: "JoplinClipperServer" })
+        }
+        return Promise.reject(new Error("Connection refused"))
+      })
+
+      const result = await JoplinAPIClient.discoverPort("192.168.1.100", 41184, 3, 500)
+
+      expect(result).toBe(41184)
+      expect(axios.get).toHaveBeenCalledWith("http://192.168.1.100:41184/ping", { timeout: 500 })
+    })
+
+    it("should use default values for maxAttempts and timeout", async () => {
+      ;(axios.get as any).mockImplementation((url: string) => {
+        if (url === "http://127.0.0.1:41184/ping") {
+          return Promise.resolve({ status: 200, data: "JoplinClipperServer" })
+        }
+        return Promise.reject(new Error("Connection refused"))
+      })
+
+      const result = await JoplinAPIClient.discoverPort()
+
+      expect(result).toBe(41184)
+      // Default maxAttempts is 10, default timeout is 300
+      expect(axios.get).toHaveBeenCalledTimes(10)
+      expect(axios.get).toHaveBeenCalledWith("http://127.0.0.1:41184/ping", { timeout: 300 })
+    })
+  })
 })
