@@ -191,7 +191,24 @@ export function createFastMCPServer(options: FastMCPServerOptions): { server: Fa
     },
   })
 
-  console.error("✅ FastMCP server configured with 11 Joplin tools")
+  // Add connect tool
+  server.addTool({
+    name: "connect",
+    description:
+      "Check connection status, discover Joplin on different ports, or reconnect with new host/port settings",
+    parameters: z.object({
+      host: z.string().optional().describe("Host to connect to (default: current host or 127.0.0.1)"),
+      port: z.number().optional().describe("Port to connect to (default: current port or 41184)"),
+      discover: z.boolean().optional().describe("Scan ports to automatically discover Joplin (default: false)"),
+      start_port: z.number().optional().describe("Starting port for discovery scan (default: 41184)"),
+      max_attempts: z.number().optional().describe("Number of ports to scan during discovery (default: 10)"),
+    }),
+    execute: async (args) => {
+      return await manager.connect(args)
+    },
+  })
+
+  console.error("✅ FastMCP server configured with 12 Joplin tools")
   return { server, manager }
 }
 
