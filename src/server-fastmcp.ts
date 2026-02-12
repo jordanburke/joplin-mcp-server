@@ -213,21 +213,9 @@ export function createFastMCPServer(options: FastMCPServerOptions): { server: Fa
 }
 
 export async function startFastMCPServer(options: FastMCPServerOptions): Promise<void> {
-  const { server, manager } = createFastMCPServer(options)
+  const { server } = createFastMCPServer(options)
 
-  // Check Joplin service availability
-  console.error(`🔍 Checking Joplin service availability at ${options.host}:${options.port}...`)
-  const available = await manager.checkService()
-  if (!available) {
-    console.error("❌ Joplin service is not available. Please ensure:")
-    console.error("  1. Joplin is running")
-    console.error("  2. Web Clipper is enabled (Tools > Options > Web Clipper)")
-    console.error(`  3. Joplin is accessible at ${options.host}:${options.port}`)
-    console.error("  4. The API token is correct")
-    console.error("\n💡 WSL users: Use --host flag with Windows IP (e.g., --host 172.20.208.1)")
-    process.exit(1)
-  }
-  console.error("✅ Joplin service is available")
+  console.error(`📋 Configured for Joplin at ${options.host}:${options.port} (will connect lazily on first tool call)`)
 
   // Start the server with HTTP streaming transport
   const port = options.httpPort || 3000

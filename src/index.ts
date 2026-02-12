@@ -7,7 +7,6 @@ import fs from "fs"
 import path from "path"
 import { fileURLToPath } from "url"
 
-import JoplinAPIClient from "./lib/joplin-api-client.js"
 import parseArgs from "./lib/parse-args.js"
 import { initializeJoplinManager } from "./server-core.js"
 import { startFastMCPServer } from "./server-fastmcp.js"
@@ -30,34 +29,11 @@ if (!process.env.JOPLIN_TOKEN) {
 
 const joplinToken = process.env.JOPLIN_TOKEN
 
-/**
- * Resolve the Joplin port - either use explicit port or auto-discover
- */
-async function resolveJoplinPort(): Promise<number> {
-  if (portExplicitlySet && process.env.JOPLIN_PORT) {
-    const port = parseInt(process.env.JOPLIN_PORT, 10)
-    process.stderr.write(`📍 Using explicit Joplin port: ${port}\n`)
-    return port
-  }
-
-  // Auto-discover port
-  const discoveredPort = await JoplinAPIClient.discoverPort(host)
-  if (discoveredPort === null) {
-    process.stderr.write("❌ Could not find a running Joplin instance.\n")
-    process.stderr.write("Please ensure:\n")
-    process.stderr.write("  1. Joplin is running\n")
-    process.stderr.write("  2. Web Clipper is enabled (Tools > Options > Web Clipper)\n")
-    process.stderr.write("  3. Or specify port explicitly with --port <port>\n")
-    process.exit(1)
-  }
-
-  return discoveredPort
-}
+// Use explicit port or default (lazy discovery happens on first tool call)
+const joplinPort = portExplicitlySet && process.env.JOPLIN_PORT ? parseInt(process.env.JOPLIN_PORT, 10) : 41184
 
 // Main startup logic
 async function main(): Promise<void> {
-  const joplinPort = await resolveJoplinPort()
-
   if (isHttpMode) {
     console.error("🌐 Starting HTTP transport mode with FastMCP...")
     await startFastMCPServer({

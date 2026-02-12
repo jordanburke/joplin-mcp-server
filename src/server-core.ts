@@ -29,6 +29,7 @@ export interface ConnectionStatus {
 export class JoplinServerManager {
   private apiClient: JoplinAPIClient
   private config: JoplinServerConfig
+  private connected: boolean = false
   private tools: {
     listNotebooks: ListNotebooks
     searchNotes: SearchNotes
@@ -76,11 +77,54 @@ export class JoplinServerManager {
   }
 
   /**
+   * Lazily ensure we have a working connection to Joplin.
+   * On first tool call, attempts to connect using the configured port,
+   * or auto-discovers if no explicit port was set. Subsequent calls
+   * re-check availability so Joplin can be started after the MCP server.
+   */
+  async ensureConnected(): Promise<void> {
+    // Fast path: already confirmed connected, verify still available
+    if (this.connected) {
+      const available = await this.apiClient.serviceAvailable()
+      if (available) return
+      this.connected = false
+    }
+
+    // Try current config first
+    const available = await this.apiClient.serviceAvailable()
+    if (available) {
+      this.connected = true
+      process.stderr.write(`✅ Connected to Joplin at ${this.config.host}:${this.config.port}\n`)
+      return
+    }
+
+    // Auto-discover
+    process.stderr.write("🔍 Joplin not available at configured address, attempting auto-discovery...\n")
+    const discoveredPort = await JoplinAPIClient.discoverPort(this.config.host)
+    if (discoveredPort) {
+      this.reconnect(this.config.host, discoveredPort)
+      const nowAvailable = await this.apiClient.serviceAvailable()
+      if (nowAvailable) {
+        this.connected = true
+        process.stderr.write(`✅ Auto-discovered Joplin on port ${discoveredPort}\n`)
+        return
+      }
+    }
+
+    throw new Error(
+      `Joplin is not available. Please ensure Joplin is running with Web Clipper enabled, ` +
+        `or use the 'connect' tool to specify host/port. ` +
+        `Current settings: ${this.config.host}:${this.config.port}`,
+    )
+  }
+
+  /**
    * Reconnect to Joplin with new host/port settings.
    * Reinitializes the API client and all tools.
    */
   reconnect(host: string, port: number): void {
     this.config = { ...this.config, host, port }
+    this.connected = false
     this.apiClient = new JoplinAPIClient({
       host,
       port,
@@ -154,22 +198,27 @@ export class JoplinServerManager {
 
   // Tool execution methods
   async listNotebooks(): Promise<string> {
+    await this.ensureConnected()
     return await this.tools.listNotebooks.call()
   }
 
   async searchNotes(query: string): Promise<string> {
+    await this.ensureConnected()
     return await this.tools.searchNotes.call(query)
   }
 
   async readNotebook(notebookId: string): Promise<string> {
+    await this.ensureConnected()
     return await this.tools.readNotebook.call(notebookId)
   }
 
   async readNote(noteId: string): Promise<string> {
+    await this.ensureConnected()
     return await this.tools.readNote.call(noteId)
   }
 
   async readMultiNote(noteIds: string[]): Promise<string> {
+    await this.ensureConnected()
     return await this.tools.readMultiNote.call(noteIds)
   }
 
@@ -181,10 +230,12 @@ export class JoplinServerManager {
     is_todo?: boolean | undefined
     image_data_url?: string | undefined
   }): Promise<string> {
+    await this.ensureConnected()
     return await this.tools.createNote.call(params)
   }
 
   async createFolder(params: { title: string; parent_id?: string | undefined }): Promise<string> {
+    await this.ensureConnected()
     return await this.tools.createFolder.call(params)
   }
 
@@ -198,6 +249,7 @@ export class JoplinServerManager {
     todo_completed?: boolean | undefined
     todo_due?: number | undefined
   }): Promise<string> {
+    await this.ensureConnected()
     return await this.tools.editNote.call(params)
   }
 
@@ -206,10 +258,12 @@ export class JoplinServerManager {
     title?: string | undefined
     parent_id?: string | undefined
   }): Promise<string> {
+    await this.ensureConnected()
     return await this.tools.editFolder.call(params)
   }
 
   async deleteNote(params: { note_id: string; confirm?: boolean | undefined }): Promise<string> {
+    await this.ensureConnected()
     return await this.tools.deleteNote.call(params)
   }
 
@@ -218,6 +272,7 @@ export class JoplinServerManager {
     confirm?: boolean | undefined
     force?: boolean | undefined
   }): Promise<string> {
+    await this.ensureConnected()
     return await this.tools.deleteFolder.call(params)
   }
 }
