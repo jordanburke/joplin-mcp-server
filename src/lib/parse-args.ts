@@ -1,5 +1,6 @@
 import fs from "fs"
 import { Either, Left, Option, Right } from "functype"
+import os from "os"
 import { resolve } from "path"
 
 import type { SyncTarget } from "./joplin-sidecar.js"
@@ -10,6 +11,16 @@ export type ParsedArgs = {
   httpPort: number
   profileDir: string
   syncTarget: Option<SyncTarget>
+}
+
+const expandVars = (p: string): string =>
+  p
+    .replace(/\$\{(\w+)\}/g, (_, name) => process.env[name] ?? "")
+    .replace(/\$(\w+)/g, (_, name) => process.env[name] ?? "")
+
+const expandPath = (p: string): string => {
+  const expanded = expandVars(p)
+  return expanded.startsWith("~/") || expanded === "~" ? expanded.replace("~", os.homedir()) : expanded
 }
 
 const extractArg = (args: string[], flag: string): Option<string> => {
@@ -198,11 +209,12 @@ function parseArgs(): ParsedArgs {
   // Handle --profile
   const profileDir = extractArg(args, "--profile")
     .or(Option(process.env.JOPLIN_PROFILE))
-    .orElse(`${process.env.HOME}/.config/joplin-mcp`)
+    .map(expandPath)
+    .orElse(`${os.homedir()}/.config/joplin-mcp`)
 
   // Handle sync args
   const syncTarget = extractArg(args, "--sync-target").or(Option(process.env.JOPLIN_SYNC_TARGET))
-  const syncPath = extractArg(args, "--sync-path").or(Option(process.env.JOPLIN_SYNC_PATH))
+  const syncPath = extractArg(args, "--sync-path").or(Option(process.env.JOPLIN_SYNC_PATH)).map(expandPath)
   const syncUsername = extractArg(args, "--sync-username").or(Option(process.env.JOPLIN_SYNC_USERNAME))
   const syncPassword = extractArg(args, "--sync-password").or(Option(process.env.JOPLIN_SYNC_PASSWORD))
 

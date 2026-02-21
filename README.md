@@ -1,5 +1,9 @@
 # Joplin MCP Server
 
+[![npm version](https://img.shields.io/npm/v/joplin-mcp-server)](https://www.npmjs.com/package/joplin-mcp-server)
+[![CI](https://github.com/jordanburke/joplin-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/jordanburke/joplin-mcp-server/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A self-contained MCP (Model Context Protocol) server for [Joplin](https://joplinapp.org/). Bundles the Joplin Terminal CLI as a dependency — no desktop app, no global installs, no external processes to manage.
 
 ## Quick Start
@@ -77,6 +81,24 @@ OPTIONS:
   --sync-password <pass>     Password for sync
   --help, -h                 Show help message
 ```
+
+### Path Expansion
+
+The `--sync-path` and `--profile` options support `~` and environment variable expansion for cross-platform compatibility:
+
+```bash
+# Tilde expands to home directory (Linux, macOS, Windows)
+--sync-path ~/OneDrive/Apps/Joplin
+
+# Environment variables (both forms supported)
+--sync-path ${HOME}/OneDrive/Apps/Joplin
+--sync-path $HOME/OneDrive/Apps/Joplin
+
+# Windows example using USERPROFILE
+--sync-path ${USERPROFILE}/OneDrive/Apps/Joplin
+```
+
+This works in MCP client configs (`.mcp.json`, Claude Desktop) where shell expansion isn't available.
 
 ### Sync Targets
 

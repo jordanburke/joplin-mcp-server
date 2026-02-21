@@ -2,13 +2,7 @@
   "mcpServers": {
     "joplin": {
       "command": "node",
-      "args": [
-        "dist/bin.js",
-        "--sync-target",
-        "filesystem",
-        "--sync-path",
-        "/mnt/c/Users/jordan.burke/OneDrive/Apps/Joplin"
-      ],
+      "args": ["dist/bin.js", "--sync-target", "filesystem", "--sync-path", "~/OneDrive/Apps/Joplin"],
       "env": {
         "JOPLIN_HOST": "",
         "JOPLIN_PORT": ""
