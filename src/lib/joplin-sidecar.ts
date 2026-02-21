@@ -1,11 +1,15 @@
 import { type ChildProcess, execSync, spawn } from "child_process"
 import fs from "fs"
 import { Either, Left, Match, Option, Right } from "functype"
+import os from "os"
 import { dirname, join } from "path"
 import { fileURLToPath } from "url"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
+
+const isWindows = process.platform === "win32"
+const whichCmd = isWindows ? "where" : "which"
 
 export type SyncTarget =
   | { type: "none" }
@@ -60,12 +64,12 @@ const findJoplinCli = (): Either<SidecarError, string> => {
   }
 
   // 2. Bundled in node_modules (if joplin is a dependency)
-  const localBin = join(process.cwd(), "node_modules", ".bin", "joplin")
+  const localBin = join(process.cwd(), "node_modules", ".bin", isWindows ? "joplin.cmd" : "joplin")
   if (fs.existsSync(localBin)) return Right(localBin)
 
   // 3. Global install
   try {
-    const joplinPath = execSync("which joplin", { encoding: "utf-8" }).trim()
+    const joplinPath = execSync(`${whichCmd} joplin`, { encoding: "utf-8" }).trim().split("\n")[0]
     return Right(joplinPath)
   } catch {
     // not found
@@ -73,7 +77,7 @@ const findJoplinCli = (): Either<SidecarError, string> => {
 
   // 4. npx fallback (auto-downloads on first run)
   try {
-    const npxPath = execSync("which npx", { encoding: "utf-8" }).trim()
+    const npxPath = execSync(`${whichCmd} npx`, { encoding: "utf-8" }).trim().split("\n")[0]
     process.stderr.write("[joplin-sidecar] No local joplin found, using npx (may download on first run)\n")
     return Right(npxPath)
   } catch {
@@ -105,7 +109,7 @@ const configureJoplin = (cli: string, config: SidecarConfig): Either<SidecarErro
 
   // Ensure profile directory exists
   try {
-    execSync(`mkdir -p ${config.profileDir}`, { encoding: "utf-8" })
+    fs.mkdirSync(config.profileDir, { recursive: true })
   } catch (e) {
     return Left(sidecarError("CONFIG_FAILED", "Failed to create profile directory", e))
   }
@@ -168,6 +172,7 @@ const spawnServer = (cli: string, config: SidecarConfig): Either<SidecarError, C
     const proc = spawn(cmd, args, {
       stdio: ["ignore", "pipe", "pipe"],
       detached: false,
+      shell: isWindows,
     })
 
     proc.stderr?.on("data", (data: Buffer) => {
@@ -217,7 +222,7 @@ export class JoplinSidecar {
 
   constructor(config: Partial<SidecarConfig> & { apiToken: string }) {
     this.config = {
-      profileDir: config.profileDir ?? `${process.env.HOME}/.config/joplin-mcp`,
+      profileDir: config.profileDir ?? join(os.homedir(), ".config", "joplin-mcp"),
       apiPort: config.apiPort ?? 41184,
       apiToken: config.apiToken,
       syncTarget: config.syncTarget,
@@ -324,8 +329,12 @@ export class JoplinSidecar {
 
   async sync(): Promise<Either<Error, string>> {
     try {
-      const cli = execSync("which joplin", { encoding: "utf-8" }).trim()
-      const cmd = cli || "npx joplin"
+      let cmd: string
+      try {
+        cmd = execSync(`${whichCmd} joplin`, { encoding: "utf-8" }).trim().split("\n")[0]
+      } catch {
+        cmd = "npx joplin"
+      }
       const output = execSync(`${cmd} sync --profile ${this.config.profileDir}`, {
         encoding: "utf-8",
         timeout: 120_000,
