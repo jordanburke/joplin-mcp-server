@@ -75,7 +75,14 @@ const fetchWithTimeout = async (url: string, timeoutMs: number = 5_000): Promise
   }
 }
 
-type PortProbeResult = "free" | "joplin_ours" | "joplin_foreign" | "occupied_other"
+type PortProbeResult = "free" | "joplin_ours" | "joplin_foreign" | "occupied_other" | "occupied_unresponsive"
+
+const isConnectionRefused = (err: unknown): boolean => {
+  const e = err as { cause?: { code?: string; errors?: Array<{ code?: string }> } }
+  if (e?.cause?.code === "ECONNREFUSED") return true
+  if (e?.cause?.errors?.some((inner) => inner?.code === "ECONNREFUSED")) return true
+  return false
+}
 
 const probePort = async (port: number, token: string): Promise<PortProbeResult> => {
   try {
@@ -94,8 +101,11 @@ const probePort = async (port: number, token: string): Promise<PortProbeResult> 
     } catch {
       return "joplin_foreign"
     }
-  } catch {
-    return "free"
+  } catch (err: unknown) {
+    // ECONNREFUSED = nothing listening on the port = genuinely free
+    if (isConnectionRefused(err)) return "free"
+    // Timeout or other error = port is occupied but not responding to HTTP
+    return "occupied_unresponsive"
   }
 }
 
@@ -211,13 +221,32 @@ const spawnServer = (cli: string, config: SidecarConfig): Either<SidecarError, C
 const waitForReady = async (
   port: number,
   token: string,
+  proc: ChildProcess | null,
   maxRetries: number = 30,
   intervalMs: number = 1000,
 ): Promise<Either<SidecarError, true>> => {
   const deadline = Date.now() + 60_000
 
+  // Track if the spawned process exits early (e.g., port already taken)
+  let procExitCode: number | null = null
+  if (proc) {
+    proc.once("exit", (code) => {
+      procExitCode = code
+    })
+  }
+
   for (let i = 0; i < maxRetries; i++) {
     if (Date.now() > deadline) break
+
+    if (procExitCode !== null) {
+      return Left(
+        sidecarError(
+          "SPAWN_FAILED",
+          `Joplin server process exited unexpectedly (code ${procExitCode}). ` +
+            `Port ${port} may already be in use by another Joplin instance or process.`,
+        ),
+      )
+    }
 
     try {
       const pingResponse = await fetchWithTimeout(`http://127.0.0.1:${port}/ping`)
@@ -365,6 +394,17 @@ export class JoplinSidecar {
       )
     }
 
+    if (portStatus === "occupied_unresponsive") {
+      return Left(
+        sidecarError(
+          "PORT_OCCUPIED",
+          `Port ${this.config.apiPort} is occupied but not responding to HTTP requests. ` +
+            `A Joplin instance or another process may be stuck. ` +
+            `Try restarting Joplin or kill the process using port ${this.config.apiPort}.`,
+        ),
+      )
+    }
+
     // Step 4: Spawn server (port is free, skip if already spawned from a previous attempt)
     if (!this.childProcess) {
       const spawnResult = spawnServer(cli, this.config)
@@ -389,7 +429,7 @@ export class JoplinSidecar {
     }
 
     // Step 5: Wait for ready
-    const readyResult = await waitForReady(this.config.apiPort, this.config.apiToken)
+    const readyResult = await waitForReady(this.config.apiPort, this.config.apiToken, this.childProcess)
     if (Either.isLeft(readyResult)) {
       return Left(
         readyResult.fold(
