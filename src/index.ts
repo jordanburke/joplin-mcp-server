@@ -33,7 +33,27 @@ if (!process.env.JOPLIN_TOKEN && externalMode) {
   process.exit(1)
 }
 
-const joplinToken = process.env.JOPLIN_TOKEN || `mcp-${crypto.randomUUID().replace(/-/g, "").slice(0, 32)}`
+// In sidecar mode, persist the auto-generated token so the config hash stays stable
+// across restarts, enabling config caching to skip redundant `joplin config` CLI calls.
+const joplinToken = (() => {
+  if (process.env.JOPLIN_TOKEN) return process.env.JOPLIN_TOKEN
+  if (externalMode) return `mcp-${crypto.randomUUID().replace(/-/g, "").slice(0, 32)}`
+  const tokenPath = path.join(profileDir, ".mcp-token")
+  try {
+    const saved = fs.readFileSync(tokenPath, "utf-8").trim()
+    if (saved) return saved
+  } catch {
+    // No saved token yet
+  }
+  const token = `mcp-${crypto.randomUUID().replace(/-/g, "").slice(0, 32)}`
+  try {
+    fs.mkdirSync(profileDir, { recursive: true })
+    fs.writeFileSync(tokenPath, token)
+  } catch {
+    // Non-critical — token still works, just won't be cached
+  }
+  return token
+})()
 
 // Main startup logic
 async function main(): Promise<void> {

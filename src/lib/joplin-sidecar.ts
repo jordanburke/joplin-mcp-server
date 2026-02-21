@@ -338,23 +338,29 @@ export class JoplinSidecar {
       process.stderr.write("[joplin-sidecar] Configuration applied\n")
     }
 
-    // Step 3: Spawn server
-    const spawnResult = spawnServer(cli, this.config)
-    if (Either.isLeft(spawnResult)) {
-      this.startPromise = null
-      return Left(
-        spawnResult.fold(
-          (e) => e,
-          () => null as never,
-        ),
+    // Step 3: Spawn server (skip if already spawned from a previous attempt)
+    if (!this.childProcess) {
+      const spawnResult = spawnServer(cli, this.config)
+      if (Either.isLeft(spawnResult)) {
+        this.startPromise = null
+        return Left(
+          spawnResult.fold(
+            (e) => e,
+            () => null as never,
+          ),
+        )
+      }
+      const proc = spawnResult.fold(
+        () => null as unknown as ChildProcess,
+        (v) => v,
+      )
+      this.childProcess = proc
+      process.stderr.write(`[joplin-sidecar] Server spawned (pid: ${proc.pid})\n`)
+    } else {
+      process.stderr.write(
+        `[joplin-sidecar] Server already spawned (pid: ${this.childProcess.pid}), waiting for ready\n`,
       )
     }
-    const proc = spawnResult.fold(
-      () => null as unknown as ChildProcess,
-      (v) => v,
-    )
-    this.childProcess = proc
-    process.stderr.write(`[joplin-sidecar] Server spawned (pid: ${proc.pid})\n`)
 
     // Step 4: Wait for ready
     const readyResult = await waitForReady(this.config.apiPort)
@@ -368,7 +374,7 @@ export class JoplinSidecar {
       )
     }
 
-    return Right(proc)
+    return Right(this.childProcess!)
   }
 
   async stop(): Promise<Either<Error, true>> {
