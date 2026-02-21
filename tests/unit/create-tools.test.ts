@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"
+import { Right, Left } from "functype"
 import JoplinAPIClient from "../../src/lib/joplin-api-client.js"
 import CreateNote from "../../src/lib/tools/create-note.js"
 import CreateFolder from "../../src/lib/tools/create-folder.js"
@@ -40,7 +41,7 @@ describe("Create Tools", () => {
         is_todo: false,
       }
 
-      mockApiClient.post.mockResolvedValue(mockCreatedNote)
+      mockApiClient.post.mockResolvedValue(Right(mockCreatedNote))
 
       const result = await createNote.call({
         title: "Test Note",
@@ -72,8 +73,8 @@ describe("Create Tools", () => {
         title: "Test Notebook",
       }
 
-      mockApiClient.post.mockResolvedValue(mockCreatedNote)
-      mockApiClient.get.mockResolvedValue(mockNotebook)
+      mockApiClient.post.mockResolvedValue(Right(mockCreatedNote))
+      mockApiClient.get.mockResolvedValue(Right(mockNotebook))
 
       const result = await createNote.call({
         title: "Test Note",
@@ -101,7 +102,7 @@ describe("Create Tools", () => {
         todo_completed: false,
       }
 
-      mockApiClient.post.mockResolvedValue(mockCreatedNote)
+      mockApiClient.post.mockResolvedValue(Right(mockCreatedNote))
 
       const result = await createNote.call({
         title: "Test Todo",
@@ -135,7 +136,7 @@ describe("Create Tools", () => {
     })
 
     it("should handle API errors", async () => {
-      mockApiClient.post.mockRejectedValue(new Error("API Error"))
+      mockApiClient.post.mockResolvedValue(Left(new Error("API Error")))
 
       const result = await createNote.call({
         title: "Test Note",
@@ -147,7 +148,7 @@ describe("Create Tools", () => {
     it("should handle 404 errors for parent notebook", async () => {
       const error = new Error("Not found")
       ;(error as any).response = { status: 404 }
-      mockApiClient.post.mockRejectedValue(error)
+      mockApiClient.post.mockResolvedValue(Left(error))
 
       const result = await createNote.call({
         title: "Test Note",
@@ -169,7 +170,7 @@ describe("Create Tools", () => {
         updated_time: 1234567890000,
       }
 
-      mockApiClient.post.mockResolvedValue(mockCreatedFolder)
+      mockApiClient.post.mockResolvedValue(Right(mockCreatedFolder))
 
       const result = await createFolder.call({
         title: "Test Folder",
@@ -197,8 +198,8 @@ describe("Create Tools", () => {
         title: "Parent Folder",
       }
 
-      mockApiClient.post.mockResolvedValue(mockCreatedFolder)
-      mockApiClient.get.mockResolvedValue(mockParentFolder)
+      mockApiClient.post.mockResolvedValue(Right(mockCreatedFolder))
+      mockApiClient.get.mockResolvedValue(Right(mockParentFolder))
 
       const result = await createFolder.call({
         title: "Test Subfolder",
@@ -239,7 +240,7 @@ describe("Create Tools", () => {
     })
 
     it("should handle API errors", async () => {
-      mockApiClient.post.mockRejectedValue(new Error("API Error"))
+      mockApiClient.post.mockResolvedValue(Left(new Error("API Error")))
 
       const result = await createFolder.call({
         title: "Test Folder",
@@ -251,7 +252,7 @@ describe("Create Tools", () => {
     it("should handle 404 errors for parent folder", async () => {
       const error = new Error("Not found")
       ;(error as any).response = { status: 404 }
-      mockApiClient.post.mockRejectedValue(error)
+      mockApiClient.post.mockResolvedValue(Left(error))
 
       const result = await createFolder.call({
         title: "Test Folder",
@@ -265,7 +266,7 @@ describe("Create Tools", () => {
     it("should handle 409 conflict errors", async () => {
       const error = new Error("Conflict")
       ;(error as any).response = { status: 409 }
-      mockApiClient.post.mockRejectedValue(error)
+      mockApiClient.post.mockResolvedValue(Left(error))
 
       const result = await createFolder.call({
         title: "Existing Folder",

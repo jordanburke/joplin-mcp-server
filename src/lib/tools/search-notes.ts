@@ -12,12 +12,14 @@ class SearchNotes extends BaseTool {
 
     try {
       // Search for notes with the given query
-      const searchResults = await this.apiClient.get<SearchResult>("/search", {
-        query: {
-          query,
-          fields: "id,title,body,parent_id,updated_time",
-        },
-      })
+      const searchResults = this.unwrap(
+        await this.apiClient.get<SearchResult>("/search", {
+          query: {
+            query,
+            fields: "id,title,body,parent_id,updated_time",
+          },
+        }),
+      )
 
       // Handle case where the API doesn't return the expected structure
       if (!searchResults || typeof searchResults !== "object") {
@@ -30,11 +32,13 @@ class SearchNotes extends BaseTool {
       }
 
       // Get all folders to be able to show notebook names
-      const folders = await this.apiClient.getAllItems<JoplinFolder>("/folders", {
-        query: {
-          fields: "id,title",
-        },
-      })
+      const folders = this.unwrap(
+        await this.apiClient.getAllItems<JoplinFolder>("/folders", {
+          query: {
+            fields: "id,title",
+          },
+        }),
+      )
 
       // Create a map of folder IDs to folder titles for quick lookup
       const folderMap: Record<string, string> = {}

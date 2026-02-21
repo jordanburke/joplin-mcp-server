@@ -3,9 +3,11 @@ import BaseTool, { JoplinFolder } from "./base-tool.js"
 class ListNotebooks extends BaseTool {
   async call(): Promise<string> {
     try {
-      const notebooks = await this.apiClient.getAllItems<JoplinFolder>("/folders", {
-        query: { fields: "id,title,parent_id" },
-      })
+      const notebooks = this.unwrap(
+        await this.apiClient.getAllItems<JoplinFolder>("/folders", {
+          query: { fields: "id,title,parent_id" },
+        }),
+      )
 
       const notebooksByParentId: Record<string, JoplinFolder[]> = {}
 

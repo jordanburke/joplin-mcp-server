@@ -33,9 +33,11 @@ class DeleteFolder extends BaseTool {
 
     try {
       // First, get the folder details to show what's being deleted
-      const folderToDelete = await this.apiClient.get<JoplinFolder>(`/folders/${options.folder_id}`, {
-        query: { fields: "id,title,parent_id" },
-      })
+      const folderToDelete = this.unwrap(
+        await this.apiClient.get<JoplinFolder>(`/folders/${options.folder_id}`, {
+          query: { fields: "id,title,parent_id" },
+        }),
+      )
 
       if (!folderToDelete || !folderToDelete.id) {
         return `Folder with ID "${options.folder_id}" not found.\n\nUse list_notebooks to see available folders and their IDs.`
@@ -47,15 +49,24 @@ class DeleteFolder extends BaseTool {
           .get<FolderContents>(`/folders/${options.folder_id}/notes`, {
             query: { fields: "id,title" },
           })
-          .catch(() => ({ items: [] })),
+          .then((result) =>
+            result.fold(
+              () => ({ items: [] }),
+              (data) => data,
+            ),
+          ),
         this.apiClient
           .get<FolderContents>("/folders", {
             query: { fields: "id,title,parent_id" },
           })
-          .then((response) => ({
-            items: response.items?.filter((folder: any) => folder.parent_id === options.folder_id) || [],
-          }))
-          .catch(() => ({ items: [] })),
+          .then((result) =>
+            result.fold(
+              () => ({ items: [] }),
+              (response) => ({
+                items: response.items?.filter((folder: any) => folder.parent_id === options.folder_id) || [],
+              }),
+            ),
+          ),
       ])
 
       const noteCount = notes.items?.length || 0
@@ -107,9 +118,11 @@ class DeleteFolder extends BaseTool {
       let parentInfo = "Top level"
       if (folderToDelete.parent_id) {
         try {
-          const parentFolder = await this.apiClient.get(`/folders/${folderToDelete.parent_id}`, {
-            query: { fields: "title" },
-          })
+          const parentFolder = this.unwrap(
+            await this.apiClient.get<JoplinFolder>(`/folders/${folderToDelete.parent_id}`, {
+              query: { fields: "title" },
+            }),
+          )
           if (parentFolder?.title) {
             parentInfo = `Inside "${parentFolder.title}" (notebook_id: "${folderToDelete.parent_id}")`
           }
@@ -119,7 +132,7 @@ class DeleteFolder extends BaseTool {
       }
 
       // Delete the folder
-      await this.apiClient.delete(`/folders/${options.folder_id}`)
+      this.unwrap(await this.apiClient.delete(`/folders/${options.folder_id}`))
 
       // Format success response
       const resultLines: string[] = []

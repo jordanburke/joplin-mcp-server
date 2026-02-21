@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"
+import { Right, Left } from "functype"
 import JoplinAPIClient from "../../src/lib/joplin-api-client.js"
 import EditNote from "../../src/lib/tools/edit-note.js"
 import EditFolder from "../../src/lib/tools/edit-folder.js"
@@ -50,8 +51,8 @@ describe("Edit Tools", () => {
     }
 
     it("should update note title", async () => {
-      mockApiClient.get.mockResolvedValue(mockCurrentNote)
-      mockApiClient.put.mockResolvedValue(mockUpdatedNote)
+      mockApiClient.get.mockResolvedValue(Right(mockCurrentNote))
+      mockApiClient.put.mockResolvedValue(Right(mockUpdatedNote))
 
       const result = await editNote.call({
         note_id: "a1b2c3d4e5f6789012345678901234567890abcd",
@@ -70,8 +71,8 @@ describe("Edit Tools", () => {
 
     it("should update note body", async () => {
       const updatedNote = { ...mockCurrentNote, body: "New content", updated_time: 1234567891000 }
-      mockApiClient.get.mockResolvedValue(mockCurrentNote)
-      mockApiClient.put.mockResolvedValue(updatedNote)
+      mockApiClient.get.mockResolvedValue(Right(mockCurrentNote))
+      mockApiClient.put.mockResolvedValue(Right(updatedNote))
 
       const result = await editNote.call({
         note_id: "a1b2c3d4e5f6789012345678901234567890abcd",
@@ -86,8 +87,8 @@ describe("Edit Tools", () => {
 
     it("should convert note to todo", async () => {
       const updatedNote = { ...mockCurrentNote, is_todo: true, updated_time: 1234567891000 }
-      mockApiClient.get.mockResolvedValue(mockCurrentNote)
-      mockApiClient.put.mockResolvedValue(updatedNote)
+      mockApiClient.get.mockResolvedValue(Right(mockCurrentNote))
+      mockApiClient.put.mockResolvedValue(Right(updatedNote))
 
       const result = await editNote.call({
         note_id: "a1b2c3d4e5f6789012345678901234567890abcd",
@@ -103,8 +104,8 @@ describe("Edit Tools", () => {
     it("should mark todo as completed", async () => {
       const currentTodo = { ...mockCurrentNote, is_todo: true, todo_completed: false }
       const updatedTodo = { ...currentTodo, todo_completed: true, updated_time: 1234567891000 }
-      mockApiClient.get.mockResolvedValue(currentTodo)
-      mockApiClient.put.mockResolvedValue(updatedTodo)
+      mockApiClient.get.mockResolvedValue(Right(currentTodo))
+      mockApiClient.put.mockResolvedValue(Right(updatedTodo))
 
       const result = await editNote.call({
         note_id: "a1b2c3d4e5f6789012345678901234567890abcd",
@@ -125,8 +126,8 @@ describe("Edit Tools", () => {
       }
       const mockNotebook = { title: "New Notebook" }
 
-      mockApiClient.get.mockResolvedValueOnce(mockCurrentNote).mockResolvedValueOnce(mockNotebook)
-      mockApiClient.put.mockResolvedValue(updatedNote)
+      mockApiClient.get.mockResolvedValueOnce(Right(mockCurrentNote)).mockResolvedValueOnce(Right(mockNotebook))
+      mockApiClient.put.mockResolvedValue(Right(updatedNote))
 
       const result = await editNote.call({
         note_id: "a1b2c3d4e5f6789012345678901234567890abcd",
@@ -166,7 +167,7 @@ describe("Edit Tools", () => {
     })
 
     it("should handle note not found", async () => {
-      mockApiClient.get.mockResolvedValue(null)
+      mockApiClient.get.mockResolvedValue(Right(null))
 
       const result = await editNote.call({
         note_id: "a1b2c3d4e5f6789012345678901234567890abcd",
@@ -203,8 +204,8 @@ describe("Edit Tools", () => {
     }
 
     it("should update folder title", async () => {
-      mockApiClient.get.mockResolvedValue(mockCurrentFolder)
-      mockApiClient.put.mockResolvedValue(mockUpdatedFolder)
+      mockApiClient.get.mockResolvedValue(Right(mockCurrentFolder))
+      mockApiClient.put.mockResolvedValue(Right(mockUpdatedFolder))
 
       const result = await editFolder.call({
         folder_id: "folder-123",
@@ -225,8 +226,8 @@ describe("Edit Tools", () => {
       const updatedFolder = { ...mockCurrentFolder, parent_id: "parent-456", updated_time: 1234567891000 }
       const mockParent = { title: "Parent Folder" }
 
-      mockApiClient.get.mockResolvedValueOnce(mockCurrentFolder).mockResolvedValueOnce(mockParent)
-      mockApiClient.put.mockResolvedValue(updatedFolder)
+      mockApiClient.get.mockResolvedValueOnce(Right(mockCurrentFolder)).mockResolvedValueOnce(Right(mockParent))
+      mockApiClient.put.mockResolvedValue(Right(updatedFolder))
 
       const result = await editFolder.call({
         folder_id: "folder-123",
@@ -286,7 +287,7 @@ describe("Edit Tools", () => {
     })
 
     it("should handle folder not found", async () => {
-      mockApiClient.get.mockResolvedValue(null)
+      mockApiClient.get.mockResolvedValue(Right(null))
 
       const result = await editFolder.call({
         folder_id: "a1b2c3d4e5f6789012345678901234567890abcd",
@@ -310,8 +311,8 @@ describe("Edit Tools", () => {
     it("should handle 409 conflict errors", async () => {
       const error = new Error("Conflict")
       ;(error as any).response = { status: 409 }
-      mockApiClient.get.mockResolvedValue(mockCurrentFolder)
-      mockApiClient.put.mockRejectedValue(error)
+      mockApiClient.get.mockResolvedValue(Right(mockCurrentFolder))
+      mockApiClient.put.mockResolvedValue(Left(error))
 
       const result = await editFolder.call({
         folder_id: "folder-123",

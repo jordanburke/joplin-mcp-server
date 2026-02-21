@@ -37,7 +37,7 @@ class CreateFolder extends BaseTool {
       }
 
       // Create the folder
-      const createdFolder = await this.apiClient.post<CreateFolderResponse>("/folders", requestBody)
+      const createdFolder = this.unwrap(await this.apiClient.post<CreateFolderResponse>("/folders", requestBody))
 
       // Validate response
       if (!createdFolder || typeof createdFolder !== "object" || !createdFolder.id) {
@@ -48,9 +48,11 @@ class CreateFolder extends BaseTool {
       let parentInfo = "Top level"
       if (createdFolder.parent_id) {
         try {
-          const parentNotebook = await this.apiClient.get(`/folders/${createdFolder.parent_id}`, {
-            query: { fields: "id,title" },
-          })
+          const parentNotebook = this.unwrap(
+            await this.apiClient.get<JoplinFolder>(`/folders/${createdFolder.parent_id}`, {
+              query: { fields: "id,title" },
+            }),
+          )
           if (parentNotebook && parentNotebook.title) {
             parentInfo = `Inside "${parentNotebook.title}" (notebook_id: "${createdFolder.parent_id}")`
           }

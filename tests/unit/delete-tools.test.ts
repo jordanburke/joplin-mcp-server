@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"
+import { Right, Left } from "functype"
 import JoplinAPIClient from "../../src/lib/joplin-api-client.js"
 import DeleteNote from "../../src/lib/tools/delete-note.js"
 import DeleteFolder from "../../src/lib/tools/delete-folder.js"
@@ -53,8 +54,8 @@ describe("Delete Tools", () => {
 
     it("should delete note with confirmation", async () => {
       const mockNotebook = { title: "Test Notebook" }
-      mockApiClient.get.mockResolvedValueOnce(mockNote).mockResolvedValueOnce(mockNotebook)
-      mockApiClient.delete.mockResolvedValue({})
+      mockApiClient.get.mockResolvedValueOnce(Right(mockNote)).mockResolvedValueOnce(Right(mockNotebook))
+      mockApiClient.delete.mockResolvedValue(Right({}))
 
       const result = await deleteNote.call({
         note_id: "a1b2c3d4e5f6789012345678901234567890abcd",
@@ -72,8 +73,8 @@ describe("Delete Tools", () => {
 
     it("should delete todo note with status", async () => {
       const mockTodo = { ...mockNote, is_todo: true, todo_completed: true }
-      mockApiClient.get.mockResolvedValue(mockTodo)
-      mockApiClient.delete.mockResolvedValue({})
+      mockApiClient.get.mockResolvedValue(Right(mockTodo))
+      mockApiClient.delete.mockResolvedValue(Right({}))
 
       const result = await deleteNote.call({
         note_id: "a1b2c3d4e5f6789012345678901234567890abcd",
@@ -84,7 +85,7 @@ describe("Delete Tools", () => {
     })
 
     it("should handle note not found", async () => {
-      mockApiClient.get.mockResolvedValue(null)
+      mockApiClient.get.mockResolvedValue(Right(null))
 
       const result = await deleteNote.call({
         note_id: "a1b2c3d4e5f6789012345678901234567890abcd",
@@ -107,8 +108,8 @@ describe("Delete Tools", () => {
     })
 
     it("should handle API errors", async () => {
-      mockApiClient.get.mockResolvedValue(mockNote)
-      mockApiClient.delete.mockRejectedValue(new Error("API Error"))
+      mockApiClient.get.mockResolvedValue(Right(mockNote))
+      mockApiClient.delete.mockResolvedValue(Left(new Error("API Error")))
 
       const result = await deleteNote.call({
         note_id: "a1b2c3d4e5f6789012345678901234567890abcd",
@@ -119,10 +120,10 @@ describe("Delete Tools", () => {
     })
 
     it("should handle 404 errors on delete", async () => {
-      mockApiClient.get.mockResolvedValue(mockNote)
+      mockApiClient.get.mockResolvedValue(Right(mockNote))
       const error = new Error("Not found")
       ;(error as any).response = { status: 404 }
-      mockApiClient.delete.mockRejectedValue(error)
+      mockApiClient.delete.mockResolvedValue(Left(error))
 
       const result = await deleteNote.call({
         note_id: "a1b2c3d4e5f6789012345678901234567890abcd",
@@ -155,11 +156,11 @@ describe("Delete Tools", () => {
     it("should delete empty folder with confirmation", async () => {
       const mockParent = { title: "Parent Folder" }
       mockApiClient.get
-        .mockResolvedValueOnce(mockFolder)
-        .mockResolvedValueOnce({ items: [] }) // notes
-        .mockResolvedValueOnce({ items: [] }) // subfolders
-        .mockResolvedValueOnce(mockParent)
-      mockApiClient.delete.mockResolvedValue({})
+        .mockResolvedValueOnce(Right(mockFolder))
+        .mockResolvedValueOnce(Right({ items: [] })) // notes
+        .mockResolvedValueOnce(Right({ items: [] })) // subfolders
+        .mockResolvedValueOnce(Right(mockParent))
+      mockApiClient.delete.mockResolvedValue(Right({}))
 
       const result = await deleteFolder.call({
         folder_id: "a1b2c3d4e5f6789012345678901234567890abcd",
@@ -177,9 +178,9 @@ describe("Delete Tools", () => {
       const mockSubfolders = { items: [{ id: "sub1", title: "Subfolder 1" }] }
 
       mockApiClient.get
-        .mockResolvedValueOnce(mockFolder)
-        .mockResolvedValueOnce(mockNotes)
-        .mockResolvedValueOnce({ items: mockSubfolders.items })
+        .mockResolvedValueOnce(Right(mockFolder))
+        .mockResolvedValueOnce(Right(mockNotes))
+        .mockResolvedValueOnce(Right({ items: mockSubfolders.items }))
 
       const result = await deleteFolder.call({
         folder_id: "a1b2c3d4e5f6789012345678901234567890abcd",
@@ -197,10 +198,10 @@ describe("Delete Tools", () => {
       const mockSubfolders = { items: [] }
 
       mockApiClient.get
-        .mockResolvedValueOnce(mockFolder)
-        .mockResolvedValueOnce(mockNotes)
-        .mockResolvedValueOnce({ items: mockSubfolders.items })
-      mockApiClient.delete.mockResolvedValue({})
+        .mockResolvedValueOnce(Right(mockFolder))
+        .mockResolvedValueOnce(Right(mockNotes))
+        .mockResolvedValueOnce(Right({ items: mockSubfolders.items }))
+      mockApiClient.delete.mockResolvedValue(Right({}))
 
       const result = await deleteFolder.call({
         folder_id: "a1b2c3d4e5f6789012345678901234567890abcd",
@@ -214,7 +215,7 @@ describe("Delete Tools", () => {
     })
 
     it("should handle folder not found", async () => {
-      mockApiClient.get.mockResolvedValue(null)
+      mockApiClient.get.mockResolvedValue(Right(null))
 
       const result = await deleteFolder.call({
         folder_id: "a1b2c3d4e5f6789012345678901234567890abcd",
@@ -238,10 +239,10 @@ describe("Delete Tools", () => {
 
     it("should handle API errors", async () => {
       mockApiClient.get
-        .mockResolvedValueOnce(mockFolder)
-        .mockResolvedValueOnce({ items: [] })
-        .mockResolvedValueOnce({ items: [] })
-      mockApiClient.delete.mockRejectedValue(new Error("API Error"))
+        .mockResolvedValueOnce(Right(mockFolder))
+        .mockResolvedValueOnce(Right({ items: [] }))
+        .mockResolvedValueOnce(Right({ items: [] }))
+      mockApiClient.delete.mockResolvedValue(Left(new Error("API Error")))
 
       const result = await deleteFolder.call({
         folder_id: "a1b2c3d4e5f6789012345678901234567890abcd",
@@ -253,12 +254,12 @@ describe("Delete Tools", () => {
 
     it("should handle 409 conflict errors", async () => {
       mockApiClient.get
-        .mockResolvedValueOnce(mockFolder)
-        .mockResolvedValueOnce({ items: [] })
-        .mockResolvedValueOnce({ items: [] })
+        .mockResolvedValueOnce(Right(mockFolder))
+        .mockResolvedValueOnce(Right({ items: [] }))
+        .mockResolvedValueOnce(Right({ items: [] }))
       const error = new Error("Conflict")
       ;(error as any).response = { status: 409 }
-      mockApiClient.delete.mockRejectedValue(error)
+      mockApiClient.delete.mockResolvedValue(Left(error))
 
       const result = await deleteFolder.call({
         folder_id: "a1b2c3d4e5f6789012345678901234567890abcd",

@@ -27,11 +27,13 @@ class ReadMultiNote extends BaseTool {
 
       try {
         // Get the note details with all relevant fields
-        const note = await this.apiClient.get<JoplinNote>(`/notes/${noteId}`, {
-          query: {
-            fields: "id,title,body,parent_id,created_time,updated_time,is_todo,todo_completed,todo_due",
-          },
-        })
+        const note = this.unwrap(
+          await this.apiClient.get<JoplinNote>(`/notes/${noteId}`, {
+            query: {
+              fields: "id,title,body,parent_id,created_time,updated_time,is_todo,todo_completed,todo_due",
+            },
+          }),
+        )
 
         // Validate note response
         if (!note || typeof note !== "object" || !note.id) {
@@ -46,9 +48,11 @@ class ReadMultiNote extends BaseTool {
         let notebookInfo = "Unknown notebook"
         if (note.parent_id) {
           try {
-            const notebook = await this.apiClient.get<JoplinFolder>(`/folders/${note.parent_id}`, {
-              query: { fields: "id,title" },
-            })
+            const notebook = this.unwrap(
+              await this.apiClient.get<JoplinFolder>(`/folders/${note.parent_id}`, {
+                query: { fields: "id,title" },
+              }),
+            )
             if (notebook && notebook.title) {
               notebookInfo = `"${notebook.title}" (notebook_id: "${note.parent_id}")`
             }

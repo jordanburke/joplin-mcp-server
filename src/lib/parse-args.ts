@@ -1,26 +1,133 @@
 import fs from "fs"
+import { Either, Left, Option, Right } from "functype"
 import { resolve } from "path"
 
-export interface ParsedArgs {
+import type { SyncTarget } from "./joplin-sidecar.js"
+
+export type ParsedArgs = {
   remainingArgs: string[]
   transport: "stdio" | "http"
   httpPort: number
-  host: string
-  portExplicitlySet: boolean
+  profileDir: string
+  syncTarget: Option<SyncTarget>
+}
+
+const extractArg = (args: string[], flag: string): Option<string> => {
+  const index = args.indexOf(flag)
+  if (index === -1) return Option.none()
+  const value = args[index + 1]
+  if (!value || value.startsWith("--")) return Option.none()
+  args.splice(index, 2)
+  return Option(value)
+}
+
+export const buildSyncTarget = (args: {
+  syncTarget: Option<string>
+  syncPath: Option<string>
+  syncUsername: Option<string>
+  syncPassword: Option<string>
+}): Either<string, SyncTarget> => {
+  const targetType = args.syncTarget.orElse("none")
+
+  switch (targetType) {
+    case "none":
+      return Right({ type: "none" } as SyncTarget)
+
+    case "filesystem":
+      return args.syncPath.fold(
+        () => Left("--sync-path required for filesystem sync target"),
+        (path) => Right({ type: "filesystem", path } as SyncTarget),
+      )
+
+    case "webdav":
+      return args.syncPath.fold(
+        () => Left("--sync-path required for webdav sync target"),
+        (url) =>
+          args.syncUsername.fold(
+            () => Left("--sync-username required for webdav sync target"),
+            (username) =>
+              args.syncPassword.fold(
+                () => Left("--sync-password required for webdav sync target"),
+                (password) => Right({ type: "webdav", url, username, password } as SyncTarget),
+              ),
+          ),
+      )
+
+    case "nextcloud":
+      return args.syncPath.fold(
+        () => Left("--sync-path required for nextcloud sync target"),
+        (url) =>
+          args.syncUsername.fold(
+            () => Left("--sync-username required for nextcloud sync target"),
+            (username) =>
+              args.syncPassword.fold(
+                () => Left("--sync-password required for nextcloud sync target"),
+                (password) => Right({ type: "nextcloud", url, username, password } as SyncTarget),
+              ),
+          ),
+      )
+
+    case "joplin-cloud":
+      return args.syncUsername.fold(
+        () => Left("--sync-username required for joplin-cloud sync target"),
+        (email) =>
+          args.syncPassword.fold(
+            () => Left("--sync-password required for joplin-cloud sync target"),
+            (password) => Right({ type: "joplin-cloud", email, password } as SyncTarget),
+          ),
+      )
+
+    case "joplin-server":
+      return args.syncPath.fold(
+        () => Left("--sync-path required for joplin-server sync target"),
+        (url) =>
+          args.syncUsername.fold(
+            () => Left("--sync-username required for joplin-server sync target"),
+            (email) =>
+              args.syncPassword.fold(
+                () => Left("--sync-password required for joplin-server sync target"),
+                (password) => Right({ type: "joplin-server", url, email, password } as SyncTarget),
+              ),
+          ),
+      )
+
+    case "s3":
+      return args.syncPath.fold(
+        () => Left("--sync-path (bucket) required for s3 sync target"),
+        (bucket) =>
+          args.syncUsername.fold(
+            () => Left("--sync-username (access key) required for s3 sync target"),
+            (accessKey) =>
+              args.syncPassword.fold(
+                () => Left("--sync-password (secret key) required for s3 sync target"),
+                (secretKey) => Right({ type: "s3", bucket, region: "us-east-1", accessKey, secretKey } as SyncTarget),
+              ),
+          ),
+      )
+
+    case "dropbox":
+      return Right({ type: "dropbox" } as SyncTarget)
+
+    case "onedrive":
+      return Right({ type: "onedrive" } as SyncTarget)
+
+    default:
+      return Left(
+        `Unknown sync target: ${targetType}. Valid targets: none, filesystem, webdav, nextcloud, joplin-cloud, joplin-server, s3, dropbox, onedrive`,
+      )
+  }
 }
 
 function parseArgs(): ParsedArgs {
   const args = process.argv.slice(2)
   let transport: "stdio" | "http" = "stdio"
   let httpPort = 3000
-  let host = "127.0.0.1"
-  let portExplicitlySet = false
 
   // Load environment variables without dotenv debug output (for MCP stdio compatibility)
   const loadEnvFile = (envPath: string) => {
     try {
       if (fs.existsSync(envPath)) {
-        process.stderr.write(`📄 Loading environment from: ${envPath}\n`)
+        process.stderr.write(`Loading environment from: ${envPath}\n`)
         const envContent = fs.readFileSync(envPath, "utf-8")
         const envLines = envContent.split("\n")
         const loadedVars: string[] = []
@@ -33,7 +140,6 @@ function parseArgs(): ParsedArgs {
               const value = valueParts.join("=").replace(/^["']|["']$/g, "")
               if (!process.env[key.trim()]) {
                 process.env[key.trim()] = value
-                // Only show key name, not the actual value for security
                 loadedVars.push(key.trim())
               }
             }
@@ -41,179 +147,149 @@ function parseArgs(): ParsedArgs {
         }
 
         if (loadedVars.length > 0) {
-          process.stderr.write(`✅ Loaded variables: ${loadedVars.join(", ")}\n`)
+          process.stderr.write(`Loaded variables: ${loadedVars.join(", ")}\n`)
         }
-      } else {
-        process.stderr.write(`⚠️  Environment file not found: ${envPath}\n`)
       }
     } catch (error: unknown) {
-      process.stderr.write(`❌ Error loading environment file: ${error}\n`)
+      process.stderr.write(`Error loading environment file: ${error}\n`)
     }
   }
 
   // Handle --env-file
-  if (args.includes("--env-file")) {
-    const envFileIndex = args.indexOf("--env-file")
-    const envFile = args[envFileIndex + 1]
-
-    if (!envFile || envFile.startsWith("--")) {
-      process.stderr.write("Error: --env-file requires a file path\n")
-      process.exit(1)
-    }
-
-    // Remove the --env-file and its value from args
-    args.splice(envFileIndex, 2)
-
-    // Load the environment variables from the specified file
-    loadEnvFile(resolve(process.cwd(), envFile))
-  } else {
-    // Load from default .env file
-    loadEnvFile(".env")
-  }
-
-  // Handle --port
-  if (args.includes("--port")) {
-    const portIndex = args.indexOf("--port")
-    const port = args[portIndex + 1]
-
-    if (!port || port.startsWith("--")) {
-      process.stderr.write("Error: --port requires a port number\n")
-      process.exit(1)
-    }
-
-    // Remove the --port and its value from args
-    args.splice(portIndex, 2)
-
-    // Set environment variable
-    process.env.JOPLIN_PORT = port
-    portExplicitlySet = true
-  } else if (process.env.JOPLIN_PORT) {
-    // Port was set via environment variable
-    portExplicitlySet = true
-  }
+  const envFile = extractArg(args, "--env-file")
+  envFile.fold(
+    () => loadEnvFile(".env"),
+    (file) => loadEnvFile(resolve(process.cwd(), file)),
+  )
 
   // Handle --token
-  if (args.includes("--token")) {
-    const tokenIndex = args.indexOf("--token")
-    const token = args[tokenIndex + 1]
-
-    if (!token || token.startsWith("--")) {
-      process.stderr.write("Error: --token requires a token value\n")
-      process.exit(1)
-    }
-
-    // Remove the --token and its value from args
-    args.splice(tokenIndex, 2)
-
-    // Set environment variable
-    process.env.JOPLIN_TOKEN = token
-  }
-
-  // Handle --host
-  if (args.includes("--host")) {
-    const hostIndex = args.indexOf("--host")
-    const hostValue = args[hostIndex + 1]
-
-    if (!hostValue || hostValue.startsWith("--")) {
-      process.stderr.write("Error: --host requires a hostname or IP address\n")
-      process.exit(1)
-    }
-
-    // Remove the --host and its value from args
-    args.splice(hostIndex, 2)
-
-    // Set host variable
-    host = hostValue
-  } else if (process.env.JOPLIN_HOST) {
-    // Use environment variable if set
-    host = process.env.JOPLIN_HOST
-  }
+  extractArg(args, "--token").fold(
+    () => {},
+    (token) => {
+      process.env.JOPLIN_TOKEN = token
+    },
+  )
 
   // Handle --transport
-  if (args.includes("--transport")) {
-    const transportIndex = args.indexOf("--transport")
-    const transportValue = args[transportIndex + 1]
-
-    if (!transportValue || transportValue.startsWith("--")) {
-      process.stderr.write("Error: --transport requires a transport type (stdio|http)\n")
-      process.exit(1)
-    }
-
-    if (transportValue !== "stdio" && transportValue !== "http") {
-      process.stderr.write("Error: --transport must be either 'stdio' or 'http'\n")
-      process.exit(1)
-    }
-
-    transport = transportValue as "stdio" | "http"
-
-    // Remove the --transport and its value from args
-    args.splice(transportIndex, 2)
-  }
+  extractArg(args, "--transport").fold(
+    () => {},
+    (value) => {
+      if (value !== "stdio" && value !== "http") {
+        process.stderr.write("Error: --transport must be either 'stdio' or 'http'\n")
+        process.exit(1)
+      }
+      transport = value as "stdio" | "http"
+    },
+  )
 
   // Handle --http-port
-  if (args.includes("--http-port")) {
-    const httpPortIndex = args.indexOf("--http-port")
-    const httpPortValue = args[httpPortIndex + 1]
+  extractArg(args, "--http-port").fold(
+    () => {},
+    (value) => {
+      const parsed = parseInt(value, 10)
+      if (isNaN(parsed) || parsed < 1 || parsed > 65535) {
+        process.stderr.write("Error: --http-port must be a valid port number (1-65535)\n")
+        process.exit(1)
+      }
+      httpPort = parsed
+    },
+  )
 
-    if (!httpPortValue || httpPortValue.startsWith("--")) {
-      process.stderr.write("Error: --http-port requires a port number\n")
-      process.exit(1)
-    }
+  // Handle --profile
+  const profileDir = extractArg(args, "--profile")
+    .or(Option(process.env.JOPLIN_PROFILE))
+    .orElse(`${process.env.HOME}/.config/joplin-mcp`)
 
-    httpPort = parseInt(httpPortValue, 10)
+  // Handle sync args
+  const syncTarget = extractArg(args, "--sync-target").or(Option(process.env.JOPLIN_SYNC_TARGET))
+  const syncPath = extractArg(args, "--sync-path").or(Option(process.env.JOPLIN_SYNC_PATH))
+  const syncUsername = extractArg(args, "--sync-username").or(Option(process.env.JOPLIN_SYNC_USERNAME))
+  const syncPassword = extractArg(args, "--sync-password").or(Option(process.env.JOPLIN_SYNC_PASSWORD))
 
-    if (isNaN(httpPort) || httpPort < 1 || httpPort > 65535) {
-      process.stderr.write("Error: --http-port must be a valid port number (1-65535)\n")
-      process.exit(1)
-    }
-
-    // Remove the --http-port and its value from args
-    args.splice(httpPortIndex, 2)
+  // Build and validate sync target
+  const syncResult = buildSyncTarget({ syncTarget, syncPath, syncUsername, syncPassword })
+  if (Either.isLeft(syncResult)) {
+    const err = syncResult.fold(
+      (e) => e,
+      () => "",
+    )
+    process.stderr.write(`Error: ${err}\n`)
+    process.exit(1)
   }
+  const syncTargetValue = syncResult.fold(
+    () => ({ type: "none" }) as SyncTarget,
+    (v) => v,
+  )
+  const resolvedSyncTarget: Option<SyncTarget> =
+    syncTargetValue.type === "none" ? Option.none<SyncTarget>() : Option(syncTargetValue as SyncTarget)
 
   // Handle --help
   if (args.includes("--help") || args.includes("-h")) {
     process.stderr.write(`
-Joplin MCP Server
+Joplin MCP Server (Sidecar Mode)
 
 USAGE:
   joplin-mcp-server [OPTIONS]
 
 OPTIONS:
-  --env-file <file>    Load environment variables from file
-  --host <hostname>    Joplin hostname or IP (default: 127.0.0.1)
-  --port <port>        Joplin port (auto-discovers if not set, default start: 41184)
-  --token <token>      Joplin API token
-  --transport <type>   Transport type: stdio (default) or http
-  --http-port <port>   HTTP server port (default: 3000, only used with --transport http)
-  --help, -h           Show this help message
+  --env-file <file>          Load environment variables from file
+  --token <token>            Joplin API token
+  --transport <type>         Transport type: stdio (default) or http
+  --http-port <port>         HTTP server port (default: 3000, only with --transport http)
+  --profile <dir>            Joplin data directory (default: ~/.config/joplin-mcp)
+  --sync-target <type>       Sync target: none, filesystem, webdav, nextcloud,
+                             joplin-cloud, joplin-server, s3, dropbox, onedrive
+  --sync-path <url>          URL or path for sync target
+  --sync-username <user>     Username/email for sync
+  --sync-password <pass>     Password for sync
+  --help, -h                 Show this help message
 
 ENVIRONMENT VARIABLES:
-  JOPLIN_HOST          Joplin hostname or IP (default: 127.0.0.1)
-  JOPLIN_PORT          Joplin port (auto-discovers if not set)
-  JOPLIN_TOKEN         Joplin API token (required)
-  LOG_LEVEL           Log level: debug, info, warn, error (default: info)
+  JOPLIN_TOKEN               Joplin API token (required)
+  JOPLIN_HOST                Connect to existing Joplin at this host (skips sidecar)
+  JOPLIN_PORT                Connect to existing Joplin on this port (skips sidecar)
+  JOPLIN_CLI                 Path to joplin CLI binary (overrides auto-detection)
+  JOPLIN_PROFILE             Joplin data directory
+  JOPLIN_SYNC_TARGET         Sync target type
+  JOPLIN_SYNC_PATH           Sync target URL/path
+  JOPLIN_SYNC_USERNAME       Sync username/email
+  JOPLIN_SYNC_PASSWORD       Sync password
+  LOG_LEVEL                  Log level: debug, info, warn, error (default: info)
 
-PORT AUTO-DISCOVERY:
-  If --port or JOPLIN_PORT is not set, the server will scan ports 41184-41203
-  to find a running Joplin instance automatically.
+MODES:
+  Sidecar (default):
+    Spawns and manages its own Joplin Terminal process.
+    No Joplin desktop app or Web Clipper needed.
+    Uses an isolated profile at --profile path (default: ~/.config/joplin-mcp).
+
+  External (JOPLIN_HOST/JOPLIN_PORT set):
+    Connects directly to an existing Joplin instance.
+    Useful for WSL connecting to Windows Joplin desktop.
 
 EXAMPLES:
-  # Auto-discover Joplin port (recommended)
-  joplin-mcp-server --token your_token
+  # Minimal - local notes, no sync
+  joplin-mcp-server --token my_token
 
-  # Explicit port (skips auto-discovery)
-  joplin-mcp-server --port 41184 --token your_token
-  joplin-mcp-server --env-file /path/to/.env
+  # Joplin Cloud sync
+  joplin-mcp-server --token my_token \\
+    --sync-target joplin-cloud \\
+    --sync-username user@example.com --sync-password pass
 
-  # HTTP transport (for web applications)
-  joplin-mcp-server --transport http --http-port 3000 --token your_token
-  joplin-mcp-server --env-file .env.local --transport http
+  # WebDAV sync
+  joplin-mcp-server --token my_token \\
+    --sync-target webdav \\
+    --sync-path https://dav.example.com/joplin \\
+    --sync-username user --sync-password pass
 
-  # WSL - Connect to Windows host
-  joplin-mcp-server --host 172.20.208.1 --token your_token
-  export JOPLIN_HOST=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2}')
-  joplin-mcp-server --transport http
+  # Filesystem sync (Syncthing, NAS)
+  joplin-mcp-server --token my_token \\
+    --sync-target filesystem --sync-path /mnt/sync/joplin
+
+  # HTTP transport for web apps
+  joplin-mcp-server --token my_token --transport http --http-port 3000
+
+  # External mode - connect to existing Joplin (e.g. Windows desktop from WSL)
+  JOPLIN_HOST=172.x.x.x JOPLIN_PORT=41184 joplin-mcp-server --token my_token
 
 Find your Joplin token in: Tools > Options > Web Clipper
 `)
@@ -224,8 +300,8 @@ Find your Joplin token in: Tools > Options > Web Clipper
     remainingArgs: args,
     transport,
     httpPort,
-    host,
-    portExplicitlySet,
+    profileDir,
+    syncTarget: resolvedSyncTarget,
   }
 }
 

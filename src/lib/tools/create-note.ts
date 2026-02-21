@@ -1,4 +1,4 @@
-import BaseTool, { JoplinNote } from "./base-tool.js"
+import BaseTool, { JoplinFolder, JoplinNote } from "./base-tool.js"
 
 interface CreateNoteOptions {
   title?: string | undefined
@@ -39,7 +39,7 @@ class CreateNote extends BaseTool {
       if (options.image_data_url) requestBody.image_data_url = options.image_data_url
 
       // Create the note
-      const createdNote = await this.apiClient.post<CreateNoteResponse>("/notes", requestBody)
+      const createdNote = this.unwrap(await this.apiClient.post<CreateNoteResponse>("/notes", requestBody))
 
       // Validate response
       if (!createdNote || typeof createdNote !== "object" || !createdNote.id) {
@@ -50,9 +50,11 @@ class CreateNote extends BaseTool {
       let notebookInfo = "Root level"
       if (createdNote.parent_id) {
         try {
-          const notebook = await this.apiClient.get(`/folders/${createdNote.parent_id}`, {
-            query: { fields: "id,title" },
-          })
+          const notebook = this.unwrap(
+            await this.apiClient.get<JoplinFolder>(`/folders/${createdNote.parent_id}`, {
+              query: { fields: "id,title" },
+            }),
+          )
           if (notebook && notebook.title) {
             notebookInfo = `"${notebook.title}" (notebook_id: "${createdNote.parent_id}")`
           }

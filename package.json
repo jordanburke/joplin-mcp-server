@@ -1,6 +1,6 @@
 {
   "name": "joplin-mcp-server",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "MCP server for Joplin",
   "type": "module",
   "main": "dist/index.js",
@@ -50,7 +50,9 @@
     "test:manual:edit-folder": "tsx tests/manual/edit-folder.test.ts",
     "test:manual:delete-note": "tsx tests/manual/delete-note.test.ts",
     "test:manual:delete-folder": "tsx tests/manual/delete-folder.test.ts",
-    "test:manual:list-notebooks": "tsx tests/manual/list-notebooks.test.ts"
+    "test:manual:list-notebooks": "tsx tests/manual/list-notebooks.test.ts",
+    "docker:build": "docker build -t joplin-mcp .",
+    "docker:run": "docker run -e JOPLIN_TOKEN=$JOPLIN_TOKEN -p 3000:3000 joplin-mcp"
   },
   "prettier": "ts-builds/prettier",
   "keywords": [
@@ -72,19 +74,27 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",
-    "axios": "^1.13.4",
-    "dotenv": "^17.2.3",
-    "fastmcp": "^3.31.0",
+    "axios": "^1.13.5",
+    "dotenv": "^17.3.1",
+    "fastmcp": "^3.33.0",
+    "functype": "^0.46.2",
+    "joplin": "^3.5.1",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/node": "^22.19.8",
+    "@types/node": "^22.19.11",
     "cross-env": "^10.1.0",
-    "rimraf": "^6.1.2",
-    "ts-builds": "^2.3.2",
+    "rimraf": "^6.1.3",
+    "ts-builds": "^2.4.0",
     "tsdown": "^0.20.3",
     "tsx": "^4.21.0",
     "vitest": "^4.0.18"
   },
-  "packageManager": "pnpm@10.28.2+sha512.41872f037ad22f7348e3b1debbaf7e867cfd448f2726d9cf74c08f19507c31d2c8e7a11525b983febc2df640b5438dee6023ebb1f84ed43cc2d654d2bc326264"
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "sqlite3",
+      "keytar"
+    ]
+  },
+  "packageManager": "pnpm@10.30.1+sha512.3590e550d5384caa39bd5c7c739f72270234b2f6059e13018f975c313b1eb9fefcc09714048765d4d9efe961382c312e624572c0420762bdc5d5940cdf9be73a"
 }

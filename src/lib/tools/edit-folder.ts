@@ -53,9 +53,11 @@ class EditFolder extends BaseTool {
 
     try {
       // First, get the current folder to show before/after comparison
-      const currentFolder = await this.apiClient.get<JoplinFolder>(`/folders/${options.folder_id}`, {
-        query: { fields: "id,title,parent_id" },
-      })
+      const currentFolder = this.unwrap(
+        await this.apiClient.get<JoplinFolder>(`/folders/${options.folder_id}`, {
+          query: { fields: "id,title,parent_id" },
+        }),
+      )
 
       if (!currentFolder || !currentFolder.id) {
         return `Folder with ID "${options.folder_id}" not found.\n\nUse list_notebooks to see available folders and their IDs.`
@@ -68,7 +70,9 @@ class EditFolder extends BaseTool {
       if (options.parent_id !== undefined) updateBody.parent_id = options.parent_id
 
       // Update the folder
-      const updatedFolder = await this.apiClient.put<EditFolderResponse>(`/folders/${options.folder_id}`, updateBody)
+      const updatedFolder = this.unwrap(
+        await this.apiClient.put<EditFolderResponse>(`/folders/${options.folder_id}`, updateBody),
+      )
 
       // Validate response
       if (!updatedFolder || typeof updatedFolder !== "object" || !updatedFolder.id) {
@@ -81,9 +85,11 @@ class EditFolder extends BaseTool {
 
       if (currentFolder.parent_id) {
         try {
-          const oldParent = await this.apiClient.get(`/folders/${currentFolder.parent_id}`, {
-            query: { fields: "title" },
-          })
+          const oldParent = this.unwrap(
+            await this.apiClient.get<JoplinFolder>(`/folders/${currentFolder.parent_id}`, {
+              query: { fields: "title" },
+            }),
+          )
           if (oldParent?.title) {
             oldParentInfo = `Inside "${oldParent.title}"`
           }
@@ -94,9 +100,11 @@ class EditFolder extends BaseTool {
 
       if (updatedFolder.parent_id && updatedFolder.parent_id !== currentFolder.parent_id) {
         try {
-          const newParent = await this.apiClient.get(`/folders/${updatedFolder.parent_id}`, {
-            query: { fields: "title" },
-          })
+          const newParent = this.unwrap(
+            await this.apiClient.get<JoplinFolder>(`/folders/${updatedFolder.parent_id}`, {
+              query: { fields: "title" },
+            }),
+          )
           if (newParent?.title) {
             newParentInfo = `Inside "${newParent.title}"`
           }

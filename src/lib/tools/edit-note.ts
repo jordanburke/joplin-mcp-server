@@ -1,4 +1,4 @@
-import BaseTool, { JoplinNote } from "./base-tool.js"
+import BaseTool, { JoplinFolder, JoplinNote } from "./base-tool.js"
 
 interface EditNoteOptions {
   note_id: string
@@ -46,9 +46,11 @@ class EditNote extends BaseTool {
 
     try {
       // First, get the current note to show before/after comparison
-      const currentNote = await this.apiClient.get<JoplinNote>(`/notes/${options.note_id}`, {
-        query: { fields: "id,title,body,parent_id,is_todo,todo_completed,todo_due,updated_time" },
-      })
+      const currentNote = this.unwrap(
+        await this.apiClient.get<JoplinNote>(`/notes/${options.note_id}`, {
+          query: { fields: "id,title,body,parent_id,is_todo,todo_completed,todo_due,updated_time" },
+        }),
+      )
 
       if (!currentNote || !currentNote.id) {
         return `Note with ID "${options.note_id}" not found.\n\nUse search_notes to find notes and their IDs.`
@@ -66,7 +68,9 @@ class EditNote extends BaseTool {
       if (options.todo_due !== undefined) updateBody.todo_due = options.todo_due
 
       // Update the note
-      const updatedNote = await this.apiClient.put<EditNoteResponse>(`/notes/${options.note_id}`, updateBody)
+      const updatedNote = this.unwrap(
+        await this.apiClient.put<EditNoteResponse>(`/notes/${options.note_id}`, updateBody),
+      )
 
       // Validate response
       if (!updatedNote || typeof updatedNote !== "object" || !updatedNote.id) {
@@ -79,9 +83,11 @@ class EditNote extends BaseTool {
 
       if (currentNote.parent_id) {
         try {
-          const oldNotebook = await this.apiClient.get(`/folders/${currentNote.parent_id}`, {
-            query: { fields: "title" },
-          })
+          const oldNotebook = this.unwrap(
+            await this.apiClient.get<JoplinFolder>(`/folders/${currentNote.parent_id}`, {
+              query: { fields: "title" },
+            }),
+          )
           if (oldNotebook?.title) {
             oldNotebookInfo = `"${oldNotebook.title}"`
           }
@@ -92,9 +98,11 @@ class EditNote extends BaseTool {
 
       if (updatedNote.parent_id && updatedNote.parent_id !== currentNote.parent_id) {
         try {
-          const newNotebook = await this.apiClient.get(`/folders/${updatedNote.parent_id}`, {
-            query: { fields: "title" },
-          })
+          const newNotebook = this.unwrap(
+            await this.apiClient.get<JoplinFolder>(`/folders/${updatedNote.parent_id}`, {
+              query: { fields: "title" },
+            }),
+          )
           if (newNotebook?.title) {
             newNotebookInfo = `"${newNotebook.title}"`
           }

@@ -11,7 +11,7 @@ const __dirname = dirname(__filename)
 const packageJson = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf-8"))
 const VERSION = packageJson.version
 
-export interface FastMCPServerOptions {
+export type FastMCPServerOptions = {
   host: string
   port: number
   token: string
@@ -20,10 +20,10 @@ export interface FastMCPServerOptions {
 }
 
 export function createFastMCPServer(options: FastMCPServerOptions): { server: FastMCP; manager: JoplinServerManager } {
-  console.error("🚀 Initializing FastMCP server for Joplin...")
+  process.stderr.write("Initializing FastMCP server for Joplin...\n")
 
   // Initialize Joplin manager
-  const manager = initializeJoplinManager(options.host, options.port, options.token)
+  const manager = initializeJoplinManager({ host: options.host, port: options.port, token: options.token })
 
   // Create FastMCP server
   const server = new FastMCP({
@@ -191,33 +191,25 @@ export function createFastMCPServer(options: FastMCPServerOptions): { server: Fa
     },
   })
 
-  // Add connect tool
+  // Add sync tool
   server.addTool({
-    name: "connect",
-    description:
-      "Check connection status, discover Joplin on different ports, or reconnect with new host/port settings",
-    parameters: z.object({
-      host: z.string().optional().describe("Host to connect to (default: current host or 127.0.0.1)"),
-      port: z.number().optional().describe("Port to connect to (default: current port or 41184)"),
-      discover: z.boolean().optional().describe("Scan ports to automatically discover Joplin (default: false)"),
-      start_port: z.number().optional().describe("Starting port for discovery scan (default: 41184)"),
-      max_attempts: z.number().optional().describe("Number of ports to scan during discovery (default: 10)"),
-    }),
-    execute: async (args) => {
-      return await manager.connect(args)
+    name: "sync",
+    description: "Trigger a Joplin sync to push/pull changes with the configured sync target",
+    parameters: z.object({}),
+    execute: async () => {
+      return await manager.sync()
     },
   })
 
-  console.error("✅ FastMCP server configured with 12 Joplin tools")
+  process.stderr.write("FastMCP server configured with 12 Joplin tools\n")
   return { server, manager }
 }
 
 export async function startFastMCPServer(options: FastMCPServerOptions): Promise<void> {
   const { server } = createFastMCPServer(options)
 
-  console.error(`📋 Configured for Joplin at ${options.host}:${options.port} (will connect lazily on first tool call)`)
+  process.stderr.write(`Configured for Joplin at ${options.host}:${options.port}\n`)
 
-  // Start the server with HTTP streaming transport
   const port = options.httpPort || 3000
   const endpoint = options.endpoint || "/mcp"
 
@@ -226,11 +218,8 @@ export async function startFastMCPServer(options: FastMCPServerOptions): Promise
     httpStream: {
       port,
       endpoint: endpoint as `/${string}`,
-      //stateless: true, // Allow multiple clients without session tracking
-      //enableJsonResponse: true, // Enable JSON response format
     },
   })
 
-  console.error(`✓ FastMCP server running on http://0.0.0.0:${port}${endpoint}`)
-  console.error("🔌 Connect with StreamableHTTPClientTransport")
+  process.stderr.write(`FastMCP server running on http://0.0.0.0:${port}${endpoint}\n`)
 }

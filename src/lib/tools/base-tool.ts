@@ -1,12 +1,14 @@
+import { type Either } from "functype"
+
 import JoplinAPIClient from "../joplin-api-client.js"
 
-interface JoplinFolder {
+type JoplinFolder = {
   id: string
   title: string
   parent_id?: string
 }
 
-interface JoplinNote {
+type JoplinNote = {
   id: string
   title: string
   body?: string
@@ -43,6 +45,15 @@ abstract class BaseTool {
     }
 
     return null
+  }
+
+  protected unwrap<T>(result: Either<Error, T>): T {
+    return result.fold(
+      (err) => {
+        throw err
+      },
+      (val) => val,
+    )
   }
 
   protected formatDate(timestamp: number): string {

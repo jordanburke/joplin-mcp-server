@@ -13,9 +13,11 @@ class ReadNotebook extends BaseTool {
 
     try {
       // First, get the notebook details
-      const notebook = await this.apiClient.get<JoplinFolder>(`/folders/${notebookId}`, {
-        query: { fields: "id,title,parent_id" },
-      })
+      const notebook = this.unwrap(
+        await this.apiClient.get<JoplinFolder>(`/folders/${notebookId}`, {
+          query: { fields: "id,title,parent_id" },
+        }),
+      )
 
       // Validate notebook response
       if (!notebook || typeof notebook !== "object" || !notebook.id) {
@@ -23,9 +25,11 @@ class ReadNotebook extends BaseTool {
       }
 
       // Get all notes in this notebook
-      const notes = await this.apiClient.get<NotebookNotesResponse>(`/folders/${notebookId}/notes`, {
-        query: { fields: "id,title,updated_time,is_todo,todo_completed" },
-      })
+      const notes = this.unwrap(
+        await this.apiClient.get<NotebookNotesResponse>(`/folders/${notebookId}/notes`, {
+          query: { fields: "id,title,updated_time,is_todo,todo_completed" },
+        }),
+      )
 
       // Validate notes response
       if (!notes || typeof notes !== "object") {

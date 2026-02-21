@@ -7,15 +7,15 @@ import fs from "fs"
 import path from "path"
 import { fileURLToPath } from "url"
 
+import { JoplinSidecar, type SyncTarget } from "./lib/joplin-sidecar.js"
 import parseArgs from "./lib/parse-args.js"
 import { initializeJoplinManager } from "./server-core.js"
 import { startFastMCPServer } from "./server-fastmcp.js"
 
-// Parse command line arguments and check for transport mode
+// Parse command line arguments
 const parsedArgs = parseArgs()
-const { transport, httpPort, host, portExplicitlySet } = parsedArgs
+const { transport, httpPort, profileDir, syncTarget } = parsedArgs
 
-// Check if HTTP transport is requested
 const isHttpMode = transport === "http"
 
 // Check for required environment variables
@@ -23,42 +23,82 @@ if (!process.env.JOPLIN_TOKEN) {
   process.stderr.write(
     "Error: JOPLIN_TOKEN is required. Use --token <token> or set JOPLIN_TOKEN environment variable.\n",
   )
-  process.stderr.write("Find your token in Joplin: Tools > Options > Web Clipper\n")
   process.exit(1)
 }
 
 const joplinToken = process.env.JOPLIN_TOKEN
 
-// Use explicit port or default (lazy discovery happens on first tool call)
-const joplinPort = portExplicitlySet && process.env.JOPLIN_PORT ? parseInt(process.env.JOPLIN_PORT, 10) : 41184
+// External mode: JOPLIN_HOST/JOPLIN_PORT set = connect directly, skip sidecar
+const externalHost = process.env.JOPLIN_HOST
+const externalPort = process.env.JOPLIN_PORT ? parseInt(process.env.JOPLIN_PORT, 10) : undefined
+const externalMode = !!(externalHost || externalPort)
 
 // Main startup logic
 async function main(): Promise<void> {
+  let host: string
+  let port: number
+  let sidecar: JoplinSidecar | undefined
+
+  if (externalMode) {
+    // External mode — connect to existing Joplin instance (e.g. Windows desktop from WSL)
+    host = externalHost || "127.0.0.1"
+    port = externalPort || 41184
+    process.stderr.write(`External mode: connecting to Joplin at ${host}:${port}\n`)
+  } else {
+    // Sidecar mode — spawn and manage Joplin Terminal
+    sidecar = new JoplinSidecar({
+      profileDir,
+      apiPort: 41184,
+      apiToken: joplinToken,
+      syncTarget: syncTarget.orUndefined() as SyncTarget | undefined,
+    })
+
+    const startResult = await sidecar.start()
+    startResult.fold(
+      (err) => {
+        process.stderr.write(`Warning: Sidecar failed to start: ${err.message}\n`)
+        process.stderr.write("Attempting to connect to existing Joplin instance...\n")
+      },
+      () => {
+        process.stderr.write("Joplin sidecar started successfully\n")
+      },
+    )
+
+    host = sidecar.getHost()
+    port = sidecar.getPort()
+
+    // Cleanup on exit
+    const cleanup = async () => {
+      await sidecar!.stop()
+      process.exit(0)
+    }
+    process.on("SIGINT", () => void cleanup())
+    process.on("SIGTERM", () => void cleanup())
+  }
+
   if (isHttpMode) {
-    console.error("🌐 Starting HTTP transport mode with FastMCP...")
+    process.stderr.write("Starting HTTP transport mode with FastMCP...\n")
     await startFastMCPServer({
       host,
-      port: joplinPort,
+      port,
       token: joplinToken,
       httpPort,
       endpoint: "/mcp",
     })
   } else {
-    console.error("📡 Starting stdio transport mode...")
-    await startStdioServer(host, joplinPort, joplinToken)
+    process.stderr.write("Starting stdio transport mode...\n")
+    await startStdioServer(host, port, joplinToken, sidecar)
   }
 }
 
 main().catch((error) => {
-  console.error("Failed to start MCP server:", error)
+  process.stderr.write(`Failed to start MCP server: ${error}\n`)
   process.exit(1)
 })
 
-async function startStdioServer(host: string, port: number, token: string): Promise<void> {
-  // Initialize Joplin manager
-  const manager = initializeJoplinManager(host, port, token)
+async function startStdioServer(host: string, port: number, token: string, sidecar?: JoplinSidecar): Promise<void> {
+  const manager = initializeJoplinManager({ host, port, token, sidecar })
 
-  // Create the MCP server using the newer SDK pattern
   const server = new Server(
     {
       name: "joplin-mcp-server",
@@ -212,6 +252,14 @@ async function startStdioServer(host: string, port: number, token: string): Prom
             required: ["folder_id"],
           },
         },
+        {
+          name: "sync",
+          description: "Trigger a Joplin sync to push/pull changes with the configured sync target",
+          inputSchema: {
+            type: "object",
+            properties: {},
+          },
+        },
       ],
     }
   })
@@ -320,6 +368,11 @@ async function startStdioServer(host: string, port: number, token: string): Prom
           return { content: [{ type: "text", text: deleteFolderResult }], isError: false }
         }
 
+        case "sync": {
+          const syncResult = await manager.sync()
+          return { content: [{ type: "text", text: syncResult }], isError: false }
+        }
+
         default:
           throw new Error(`Unknown tool: ${toolName}`)
       }
@@ -355,23 +408,19 @@ async function startStdioServer(host: string, port: number, token: string): Prom
     }
 
     async sendMessage(message: unknown): Promise<void> {
-      // Log outgoing message (response)
       const logEntry = {
         timestamp: new Date().toISOString(),
         direction: "RESPONSE",
         message,
       }
 
-      // Log to file
       fs.appendFileSync(logFile, JSON.stringify(logEntry) + "\n")
 
-      // Call the original method
       const parent = Object.getPrototypeOf(Object.getPrototypeOf(this))
       return parent.sendMessage.call(this, message)
     }
 
     async handleMessage(message: unknown): Promise<void> {
-      // Log incoming message (command)
       this.commandCounter++
       const logEntry = {
         timestamp: new Date().toISOString(),
@@ -380,21 +429,18 @@ async function startStdioServer(host: string, port: number, token: string): Prom
         message,
       }
 
-      // Log to file
       fs.appendFileSync(logFile, JSON.stringify(logEntry) + "\n")
 
-      // Call the original method
       const parent = Object.getPrototypeOf(Object.getPrototypeOf(this))
       return parent.handleMessage.call(this, message)
     }
   }
 
-  // Start the server with logging transport
-  const transport = new LoggingTransport()
+  const stdioTransport = new LoggingTransport()
 
   try {
-    await server.connect(transport)
-    console.error("✅ MCP server started and ready to receive commands")
+    await server.connect(stdioTransport)
+    process.stderr.write("MCP server started and ready to receive commands\n")
   } catch (error: unknown) {
     process.stderr.write(`Failed to start MCP server: ${error instanceof Error ? error.message : String(error)}\n`)
     process.exit(1)

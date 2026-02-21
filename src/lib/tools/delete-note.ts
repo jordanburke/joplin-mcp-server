@@ -1,4 +1,4 @@
-import BaseTool, { JoplinNote } from "./base-tool.js"
+import BaseTool, { JoplinFolder, JoplinNote } from "./base-tool.js"
 
 interface DeleteNoteOptions {
   note_id: string
@@ -28,9 +28,11 @@ class DeleteNote extends BaseTool {
 
     try {
       // First, get the note details to show what's being deleted
-      const noteToDelete = await this.apiClient.get<JoplinNote>(`/notes/${options.note_id}`, {
-        query: { fields: "id,title,body,parent_id,is_todo,todo_completed,created_time,updated_time" },
-      })
+      const noteToDelete = this.unwrap(
+        await this.apiClient.get<JoplinNote>(`/notes/${options.note_id}`, {
+          query: { fields: "id,title,body,parent_id,is_todo,todo_completed,created_time,updated_time" },
+        }),
+      )
 
       if (!noteToDelete || !noteToDelete.id) {
         return `Note with ID "${options.note_id}" not found.\n\nUse search_notes to find notes and their IDs.`
@@ -40,9 +42,11 @@ class DeleteNote extends BaseTool {
       let notebookInfo = "Root level"
       if (noteToDelete.parent_id) {
         try {
-          const notebook = await this.apiClient.get(`/folders/${noteToDelete.parent_id}`, {
-            query: { fields: "title" },
-          })
+          const notebook = this.unwrap(
+            await this.apiClient.get<JoplinFolder>(`/folders/${noteToDelete.parent_id}`, {
+              query: { fields: "title" },
+            }),
+          )
           if (notebook?.title) {
             notebookInfo = `"${notebook.title}" (notebook_id: "${noteToDelete.parent_id}")`
           }
@@ -52,7 +56,7 @@ class DeleteNote extends BaseTool {
       }
 
       // Delete the note
-      await this.apiClient.delete(`/notes/${options.note_id}`)
+      this.unwrap(await this.apiClient.delete(`/notes/${options.note_id}`))
 
       // Format success response
       const resultLines: string[] = []

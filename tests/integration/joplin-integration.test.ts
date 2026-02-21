@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest"
+import { Either } from "functype"
 import JoplinAPIClient from "../../src/lib/joplin-api-client.js"
 import { ListNotebooks, SearchNotes, ReadNotebook } from "../../src/lib/tools/index.js"
 
@@ -20,14 +21,9 @@ describe("Joplin Integration Tests", () => {
     })
 
     // Check if Joplin is actually running and accessible
-    try {
-      const isAvailable = await client.serviceAvailable()
-      if (!isAvailable) {
-        console.warn("Skipping integration tests: Joplin service not available")
-        skipTests = true
-      }
-    } catch (_error) {
-      console.warn("Skipping integration tests: Cannot connect to Joplin")
+    const result = await client.serviceAvailable()
+    if (Either.isLeft(result)) {
+      console.warn("Skipping integration tests: Joplin service not available")
       skipTests = true
     }
   })
@@ -36,31 +32,41 @@ describe("Joplin Integration Tests", () => {
     it("should connect to Joplin service", async () => {
       if (skipTests) return
 
-      const isAvailable = await client.serviceAvailable()
-      expect(isAvailable).toBe(true)
+      const result = await client.serviceAvailable()
+      expect(Either.isRight(result)).toBe(true)
     })
 
     it("should fetch folders from Joplin", async () => {
       if (skipTests) return
 
-      const folders = await client.get("/folders", {
+      const result = await client.get<{ items: unknown[]; has_more: boolean }>("/folders", {
         query: { limit: 5, fields: "id,title,parent_id" },
       })
 
+      expect(Either.isRight(result)).toBe(true)
+      const folders = result.fold(
+        () => null,
+        (v) => v,
+      )
       expect(folders).toHaveProperty("items")
-      expect(Array.isArray(folders.items)).toBe(true)
+      expect(Array.isArray(folders!.items)).toBe(true)
       expect(folders).toHaveProperty("has_more")
     })
 
     it("should fetch notes from Joplin", async () => {
       if (skipTests) return
 
-      const notes = await client.get("/notes", {
+      const result = await client.get<{ items: unknown[]; has_more: boolean }>("/notes", {
         query: { limit: 5, fields: "id,title,parent_id" },
       })
 
+      expect(Either.isRight(result)).toBe(true)
+      const notes = result.fold(
+        () => null,
+        (v) => v,
+      )
       expect(notes).toHaveProperty("items")
-      expect(Array.isArray(notes.items)).toBe(true)
+      expect(Array.isArray(notes!.items)).toBe(true)
     })
   })
 
@@ -80,7 +86,11 @@ describe("Joplin Integration Tests", () => {
       if (skipTests) return
 
       // First, let's check if there are any notes to search
-      const notes = await client.get("/notes", { query: { limit: 1 } })
+      const notesResult = await client.get<{ items: { id: string }[] }>("/notes", { query: { limit: 1 } })
+      const notes = notesResult.fold(
+        () => ({ items: [] }),
+        (v) => v,
+      )
       if (notes.items.length === 0) {
         console.warn("Skipping search test: No notes found in Joplin")
         return
@@ -98,9 +108,14 @@ describe("Joplin Integration Tests", () => {
       if (skipTests) return
 
       // First get a notebook ID
-      const folders = await client.get("/folders", {
+      const foldersResult = await client.get<{ items: { id: string; title: string }[] }>("/folders", {
         query: { limit: 1, fields: "id,title" },
       })
+
+      const folders = foldersResult.fold(
+        () => ({ items: [] as { id: string; title: string }[] }),
+        (v) => v,
+      )
 
       if (folders.items.length === 0) {
         console.warn("Skipping read notebook test: No notebooks found")
@@ -121,7 +136,8 @@ describe("Joplin Integration Tests", () => {
     it("should handle invalid API calls gracefully", async () => {
       if (skipTests) return
 
-      await expect(client.get("/invalid-endpoint")).rejects.toThrow()
+      const result = await client.get("/invalid-endpoint")
+      expect(Either.isLeft(result)).toBe(true)
     })
 
     it("should handle invalid notebook ID in ReadNotebook tool", async () => {
