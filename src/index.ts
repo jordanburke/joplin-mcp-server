@@ -20,20 +20,20 @@ const { transport, httpPort, profileDir, syncTarget } = parsedArgs
 
 const isHttpMode = transport === "http"
 
-// Check for required environment variables
-if (!process.env.JOPLIN_TOKEN) {
-  process.stderr.write(
-    "Error: JOPLIN_TOKEN is required. Use --token <token> or set JOPLIN_TOKEN environment variable.\n",
-  )
-  process.exit(1)
-}
-
-const joplinToken = process.env.JOPLIN_TOKEN
-
 // External mode: JOPLIN_HOST/JOPLIN_PORT set = connect directly, skip sidecar
 const externalHost = process.env.JOPLIN_HOST
 const externalPort = process.env.JOPLIN_PORT ? parseInt(process.env.JOPLIN_PORT, 10) : undefined
 const externalMode = !!(externalHost || externalPort)
+
+// Token is required for external mode, auto-generated for sidecar mode
+if (!process.env.JOPLIN_TOKEN && externalMode) {
+  process.stderr.write(
+    "Error: JOPLIN_TOKEN is required in external mode. Use --token <token> or set JOPLIN_TOKEN environment variable.\n",
+  )
+  process.exit(1)
+}
+
+const joplinToken = process.env.JOPLIN_TOKEN || `mcp-${crypto.randomUUID().replace(/-/g, "").slice(0, 32)}`
 
 // Main startup logic
 async function main(): Promise<void> {
