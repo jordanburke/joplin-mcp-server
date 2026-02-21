@@ -49,7 +49,7 @@ describe("JoplinAPIClient", () => {
       const result = await client.serviceAvailable()
 
       expect(Either.isRight(result)).toBe(true)
-      expect(axios.get).toHaveBeenCalledWith("http://127.0.0.1:41184/ping")
+      expect(axios.get).toHaveBeenCalledWith("http://127.0.0.1:41184/ping", { timeout: 5_000 })
     })
 
     it("should return Left when service is not available", async () => {
@@ -86,7 +86,10 @@ describe("JoplinAPIClient", () => {
         },
         (data) => expect(data).toEqual(mockData),
       )
-      expect(axios.get).toHaveBeenCalledWith("http://127.0.0.1:41184/folders", { params: { token: "test-token" } })
+      expect(axios.get).toHaveBeenCalledWith("http://127.0.0.1:41184/folders", {
+        params: { token: "test-token" },
+        timeout: 30_000,
+      })
     })
 
     it("should return Right with data on GET request with additional query params", async () => {
@@ -104,6 +107,7 @@ describe("JoplinAPIClient", () => {
           limit: 10,
           fields: "id,title",
         },
+        timeout: 30_000,
       })
     })
 
@@ -140,6 +144,7 @@ describe("JoplinAPIClient", () => {
       )
       expect(axios.post).toHaveBeenCalledWith("http://127.0.0.1:41184/notes", requestBody, {
         params: { token: "test-token" },
+        timeout: 30_000,
       })
     })
 

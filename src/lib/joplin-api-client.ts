@@ -28,7 +28,7 @@ class JoplinAPIClient {
 
   async serviceAvailable(): Promise<Either<Error, true>> {
     try {
-      const response: AxiosResponse<string> = await axios.get(`${this.baseURL}/ping`)
+      const response: AxiosResponse<string> = await axios.get(`${this.baseURL}/ping`, { timeout: 5_000 })
       if (response.status === 200 && response.data === "JoplinClipperServer") {
         return Right(true as const)
       }
@@ -77,6 +77,7 @@ class JoplinAPIClient {
     try {
       const { data }: AxiosResponse<T> = await axios.get(`${this.baseURL}${path}`, {
         params: this.requestOptions(options).query,
+        timeout: 30_000,
       })
       return Right(data)
     } catch (error: unknown) {
@@ -88,6 +89,7 @@ class JoplinAPIClient {
     try {
       const { data }: AxiosResponse<T> = await axios.post(`${this.baseURL}${path}`, body, {
         params: this.requestOptions(options).query,
+        timeout: 30_000,
       })
       return Right(data)
     } catch (error: unknown) {
@@ -99,6 +101,7 @@ class JoplinAPIClient {
     try {
       const { data }: AxiosResponse<T> = await axios.delete(`${this.baseURL}${path}`, {
         params: this.requestOptions(options).query,
+        timeout: 30_000,
       })
       return Right(data)
     } catch (error: unknown) {
@@ -110,6 +113,7 @@ class JoplinAPIClient {
     try {
       const { data }: AxiosResponse<T> = await axios.put(`${this.baseURL}${path}`, body, {
         params: this.requestOptions(options).query,
+        timeout: 30_000,
       })
       return Right(data)
     } catch (error: unknown) {

@@ -33,7 +33,15 @@ export type SidecarConfig = {
 }
 
 export type SidecarError = {
-  code: "CLI_NOT_FOUND" | "CONFIG_FAILED" | "SPAWN_FAILED" | "HEALTH_CHECK_FAILED" | "STOP_FAILED" | "SYNC_FAILED"
+  code:
+    | "CLI_NOT_FOUND"
+    | "CONFIG_FAILED"
+    | "SPAWN_FAILED"
+    | "HEALTH_CHECK_FAILED"
+    | "STOP_FAILED"
+    | "SYNC_FAILED"
+    | "PORT_CONFLICT"
+    | "PORT_OCCUPIED"
   message: string
   cause?: unknown
 }
@@ -56,6 +64,40 @@ const syncTargetId = (target: SyncTarget): number =>
     .case("joplin-server", () => 9)
     .case("joplin-cloud", () => 10)
     .default(() => 0)
+
+const fetchWithTimeout = async (url: string, timeoutMs: number = 5_000): Promise<Response> => {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, { signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+type PortProbeResult = "free" | "joplin_ours" | "joplin_foreign" | "occupied_other"
+
+const probePort = async (port: number, token: string): Promise<PortProbeResult> => {
+  try {
+    const pingResponse = await fetchWithTimeout(`http://127.0.0.1:${port}/ping`, 3_000)
+    const body = await pingResponse.text()
+    if (body !== "JoplinClipperServer") return "occupied_other"
+
+    // It's a Joplin server — check if the token matches
+    try {
+      const authResponse = await fetchWithTimeout(
+        `http://127.0.0.1:${port}/folders?token=${encodeURIComponent(token)}&limit=1`,
+        3_000,
+      )
+      if (authResponse.ok) return "joplin_ours"
+      return "joplin_foreign"
+    } catch {
+      return "joplin_foreign"
+    }
+  } catch {
+    return "free"
+  }
+}
 
 const findJoplinCli = async (): Promise<Either<SidecarError, string>> => {
   // 1. User override via env var
@@ -168,15 +210,33 @@ const spawnServer = (cli: string, config: SidecarConfig): Either<SidecarError, C
 
 const waitForReady = async (
   port: number,
+  token: string,
   maxRetries: number = 30,
   intervalMs: number = 1000,
 ): Promise<Either<SidecarError, true>> => {
+  const deadline = Date.now() + 60_000
+
   for (let i = 0; i < maxRetries; i++) {
+    if (Date.now() > deadline) break
+
     try {
-      const response = await fetch(`http://127.0.0.1:${port}/ping`)
-      if (response.ok) {
-        process.stderr.write(`[joplin-sidecar] Server ready on port ${port}\n`)
-        return Right(true as const)
+      const pingResponse = await fetchWithTimeout(`http://127.0.0.1:${port}/ping`)
+      if (pingResponse.ok) {
+        // Verify auth with token
+        try {
+          const authResponse = await fetchWithTimeout(
+            `http://127.0.0.1:${port}/folders?token=${encodeURIComponent(token)}&limit=1`,
+          )
+          if (authResponse.ok) {
+            process.stderr.write(`[joplin-sidecar] Server ready on port ${port}\n`)
+            return Right(true as const)
+          }
+          process.stderr.write(
+            `[joplin-sidecar] Ping OK but auth failed (status ${authResponse.status}), retrying...\n`,
+          )
+        } catch {
+          process.stderr.write("[joplin-sidecar] Ping OK but auth check timed out, retrying...\n")
+        }
       }
     } catch {
       // Not ready yet
@@ -184,9 +244,7 @@ const waitForReady = async (
     await new Promise((resolve) => setTimeout(resolve, intervalMs))
   }
 
-  return Left(
-    sidecarError("HEALTH_CHECK_FAILED", `Joplin server did not become ready within ${maxRetries * intervalMs}ms`),
-  )
+  return Left(sidecarError("HEALTH_CHECK_FAILED", "Joplin server did not become ready within 60s"))
 }
 
 const CONFIG_CACHE_FILE = ".mcp-configured"
@@ -278,7 +336,36 @@ export class JoplinSidecar {
       process.stderr.write("[joplin-sidecar] Configuration applied (direct SQLite write)\n")
     }
 
-    // Step 3: Spawn server (skip if already spawned from a previous attempt)
+    // Step 3: Probe port before spawning
+    const portStatus = await probePort(this.config.apiPort, this.config.apiToken)
+    process.stderr.write(`[joplin-sidecar] Port ${this.config.apiPort} status: ${portStatus}\n`)
+
+    if (portStatus === "joplin_ours") {
+      process.stderr.write("[joplin-sidecar] Existing Joplin server with matching token, reusing\n")
+      return Right(this.childProcess ?? (null as unknown as ChildProcess))
+    }
+
+    if (portStatus === "joplin_foreign") {
+      return Left(
+        sidecarError(
+          "PORT_CONFLICT",
+          `Port ${this.config.apiPort} is occupied by a Joplin server with a different API token. ` +
+            `Stop the other Joplin instance or use a different port (set JOPLIN_PORT).`,
+        ),
+      )
+    }
+
+    if (portStatus === "occupied_other") {
+      return Left(
+        sidecarError(
+          "PORT_OCCUPIED",
+          `Port ${this.config.apiPort} is occupied by a non-Joplin process. ` +
+            `Free the port or use a different one (set JOPLIN_PORT).`,
+        ),
+      )
+    }
+
+    // Step 4: Spawn server (port is free, skip if already spawned from a previous attempt)
     if (!this.childProcess) {
       const spawnResult = spawnServer(cli, this.config)
       if (Either.isLeft(spawnResult)) {
@@ -301,8 +388,8 @@ export class JoplinSidecar {
       )
     }
 
-    // Step 4: Wait for ready
-    const readyResult = await waitForReady(this.config.apiPort)
+    // Step 5: Wait for ready
+    const readyResult = await waitForReady(this.config.apiPort, this.config.apiToken)
     if (Either.isLeft(readyResult)) {
       return Left(
         readyResult.fold(
@@ -347,7 +434,7 @@ export class JoplinSidecar {
 
   async healthCheck(): Promise<Either<Error, true>> {
     try {
-      const response = await fetch(`http://127.0.0.1:${this.config.apiPort}/ping`)
+      const response = await fetchWithTimeout(`http://127.0.0.1:${this.config.apiPort}/ping`, 5_000)
       if (!response.ok) return Left(new Error(`Health check failed: ${response.status}`))
       return Right(true as const)
     } catch (error) {

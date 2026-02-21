@@ -82,13 +82,18 @@ export class JoplinServerManager {
     if (this.config.sidecar) {
       process.stderr.write("Joplin not available, starting sidecar...\n")
       const startResult = await this.config.sidecar.start()
-      if (Either.isRight(startResult)) {
-        const retryAvailable = await this.apiClient.serviceAvailable()
-        if (Either.isRight(retryAvailable)) {
-          this.connected = true
-          process.stderr.write(`Connected to Joplin via sidecar at ${this.config.host}:${this.config.port}\n`)
-          return
-        }
+      if (Either.isLeft(startResult)) {
+        const error = startResult.fold(
+          (e) => e,
+          () => null as never,
+        )
+        throw new Error(`Sidecar failed [${error.code}]: ${error.message}`)
+      }
+      const retryAvailable = await this.apiClient.serviceAvailable()
+      if (Either.isRight(retryAvailable)) {
+        this.connected = true
+        process.stderr.write(`Connected to Joplin via sidecar at ${this.config.host}:${this.config.port}\n`)
+        return
       }
     }
 
