@@ -3,14 +3,12 @@ import crypto from "crypto"
 import fs from "fs"
 import { Either, Left, Match, Option, Right } from "functype"
 import os from "os"
-import { dirname, join } from "path"
-import { fileURLToPath } from "url"
+import { join } from "path"
 import { promisify } from "util"
 
-const execAsync = promisify(exec)
+import { writeJoplinSettings } from "./joplin-settings.js"
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
+const execAsync = promisify(exec)
 
 const isWindows = process.platform === "win32"
 const whichCmd = isWindows ? "where" : "which"
@@ -98,100 +96,43 @@ const findJoplinCli = async (): Promise<Either<SidecarError, string>> => {
   )
 }
 
-const runJoplinConfig = async (
-  cmd: string,
-  profileDir: string,
-  key: string,
-  value: string,
-): Promise<Either<SidecarError, void>> => {
-  try {
-    await execAsync(`${cmd} config --profile ${profileDir} ${key} ${value}`, {
-      encoding: "utf-8",
-      timeout: 30_000,
-    })
-    return Right(undefined as void)
-  } catch (e) {
-    return Left(sidecarError("CONFIG_FAILED", `Failed to set ${key}`, e))
-  }
-}
-
-const configureJoplin = async (cli: string, config: SidecarConfig): Promise<Either<SidecarError, void>> => {
-  const cmd = cli.endsWith("npx") ? `${cli} joplin` : cli
-
-  // Ensure profile directory exists
-  try {
-    fs.mkdirSync(config.profileDir, { recursive: true })
-  } catch (e) {
-    return Left(sidecarError("CONFIG_FAILED", "Failed to create profile directory", e))
+const buildSettingsRecord = (config: SidecarConfig): Record<string, string> => {
+  const settings: Record<string, string> = {
+    "api.token": config.apiToken,
+    "api.port": String(config.apiPort),
   }
 
-  // Set API token
-  const tokenResult = await runJoplinConfig(cmd, config.profileDir, "api.token", config.apiToken)
-  if (Either.isLeft(tokenResult)) return tokenResult
-
-  // Set API port
-  const portResult = await runJoplinConfig(cmd, config.profileDir, "api.port", String(config.apiPort))
-  if (Either.isLeft(portResult)) return portResult
-
-  // Configure sync target
   const syncTarget = Option(config.syncTarget).orElse({ type: "none" } as SyncTarget)
-  const syncResult = await runJoplinConfig(cmd, config.profileDir, "sync.target", String(syncTargetId(syncTarget)))
-  if (Either.isLeft(syncResult)) return syncResult
+  settings["sync.target"] = String(syncTargetId(syncTarget))
 
-  // Configure sync-target-specific settings
   if (syncTarget.type === "filesystem") {
-    const r = await runJoplinConfig(cmd, config.profileDir, "sync.2.path", syncTarget.path)
-    if (Either.isLeft(r)) return r
+    settings["sync.2.path"] = syncTarget.path
   } else if (syncTarget.type === "webdav") {
-    for (const [k, v] of [
-      ["sync.6.path", syncTarget.url],
-      ["sync.6.username", syncTarget.username],
-      ["sync.6.password", syncTarget.password],
-    ]) {
-      const r = await runJoplinConfig(cmd, config.profileDir, k, v)
-      if (Either.isLeft(r)) return r
-    }
+    settings["sync.6.path"] = syncTarget.url
+    settings["sync.6.username"] = syncTarget.username
+    settings["sync.6.password"] = syncTarget.password
   } else if (syncTarget.type === "nextcloud") {
-    for (const [k, v] of [
-      ["sync.5.path", syncTarget.url],
-      ["sync.5.username", syncTarget.username],
-      ["sync.5.password", syncTarget.password],
-    ]) {
-      const r = await runJoplinConfig(cmd, config.profileDir, k, v)
-      if (Either.isLeft(r)) return r
-    }
+    settings["sync.5.path"] = syncTarget.url
+    settings["sync.5.username"] = syncTarget.username
+    settings["sync.5.password"] = syncTarget.password
   } else if (syncTarget.type === "s3") {
-    for (const [k, v] of [
-      ["sync.8.path", syncTarget.bucket],
-      ["sync.8.region", syncTarget.region],
-      ["sync.8.username", syncTarget.accessKey],
-      ["sync.8.password", syncTarget.secretKey],
-    ]) {
-      const r = await runJoplinConfig(cmd, config.profileDir, k, v)
-      if (Either.isLeft(r)) return r
-    }
+    settings["sync.8.path"] = syncTarget.bucket
+    settings["sync.8.region"] = syncTarget.region
+    settings["sync.8.username"] = syncTarget.accessKey
+    settings["sync.8.password"] = syncTarget.secretKey
   } else if (syncTarget.type === "joplin-server") {
-    for (const [k, v] of [
-      ["sync.9.path", syncTarget.url],
-      ["sync.9.username", syncTarget.email],
-      ["sync.9.password", syncTarget.password],
-    ]) {
-      const r = await runJoplinConfig(cmd, config.profileDir, k, v)
-      if (Either.isLeft(r)) return r
-    }
+    settings["sync.9.path"] = syncTarget.url
+    settings["sync.9.username"] = syncTarget.email
+    settings["sync.9.password"] = syncTarget.password
   } else if (syncTarget.type === "joplin-cloud") {
-    for (const [k, v] of [
-      ["sync.10.username", syncTarget.email],
-      ["sync.10.password", syncTarget.password],
-    ]) {
-      const r = await runJoplinConfig(cmd, config.profileDir, k, v)
-      if (Either.isLeft(r)) return r
-    }
+    settings["sync.10.username"] = syncTarget.email
+    settings["sync.10.password"] = syncTarget.password
   }
 
-  // Set sync interval
   const interval = Option(config.syncInterval).orElse(300)
-  return await runJoplinConfig(cmd, config.profileDir, "sync.interval", String(interval))
+  settings["sync.interval"] = String(interval)
+
+  return settings
 }
 
 const spawnServer = (cli: string, config: SidecarConfig): Either<SidecarError, ChildProcess> => {
@@ -305,7 +246,6 @@ export class JoplinSidecar {
     // Step 1: Find CLI
     const cliResult = await findJoplinCli()
     if (Either.isLeft(cliResult)) {
-      this.startPromise = null
       return Left(
         cliResult.fold(
           (e) => e,
@@ -319,14 +259,14 @@ export class JoplinSidecar {
     )
     process.stderr.write(`[joplin-sidecar] Found CLI: ${cli}\n`)
 
-    // Step 2: Configure (skip if config is cached)
+    // Step 2: Configure via direct SQLite write (skip if config is cached)
     const configHash = computeConfigHash(this.config)
     if (isConfigCached(this.config.profileDir, configHash)) {
       process.stderr.write("[joplin-sidecar] Configuration cached, skipping config step\n")
     } else {
-      const configResult = await configureJoplin(cli, this.config)
+      const settings = buildSettingsRecord(this.config)
+      const configResult = writeJoplinSettings(this.config.profileDir, settings)
       if (Either.isLeft(configResult)) {
-        this.startPromise = null
         return Left(
           configResult.fold(
             (e) => e,
@@ -335,14 +275,13 @@ export class JoplinSidecar {
         )
       }
       writeConfigCache(this.config.profileDir, configHash)
-      process.stderr.write("[joplin-sidecar] Configuration applied\n")
+      process.stderr.write("[joplin-sidecar] Configuration applied (direct SQLite write)\n")
     }
 
     // Step 3: Spawn server (skip if already spawned from a previous attempt)
     if (!this.childProcess) {
       const spawnResult = spawnServer(cli, this.config)
       if (Either.isLeft(spawnResult)) {
-        this.startPromise = null
         return Left(
           spawnResult.fold(
             (e) => e,
@@ -365,7 +304,6 @@ export class JoplinSidecar {
     // Step 4: Wait for ready
     const readyResult = await waitForReady(this.config.apiPort)
     if (Either.isLeft(readyResult)) {
-      this.startPromise = null
       return Left(
         readyResult.fold(
           (e) => e,
@@ -378,6 +316,9 @@ export class JoplinSidecar {
   }
 
   async stop(): Promise<Either<Error, true>> {
+    // Reset startPromise to allow retry via start() after stop()
+    this.startPromise = null
+
     if (!this.childProcess) return Right(true as const)
 
     const proc = this.childProcess
