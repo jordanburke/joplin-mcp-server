@@ -1,4 +1,5 @@
 import { type ChildProcess, execSync, spawn } from "child_process"
+import crypto from "crypto"
 import fs from "fs"
 import { Either, Left, Match, Option, Right } from "functype"
 import os from "os"
@@ -216,9 +217,42 @@ const waitForReady = async (
   )
 }
 
+const CONFIG_CACHE_FILE = ".mcp-configured"
+
+const computeConfigHash = (config: SidecarConfig): string => {
+  const hashData = {
+    apiPort: config.apiPort,
+    apiToken: config.apiToken,
+    syncTarget: config.syncTarget,
+    syncInterval: config.syncInterval,
+  }
+  return crypto.createHash("sha256").update(JSON.stringify(hashData)).digest("hex").slice(0, 16)
+}
+
+const isConfigCached = (profileDir: string, hash: string): boolean => {
+  try {
+    const cachePath = join(profileDir, CONFIG_CACHE_FILE)
+    if (!fs.existsSync(cachePath)) return false
+    const cached = JSON.parse(fs.readFileSync(cachePath, "utf-8"))
+    return cached.hash === hash
+  } catch {
+    return false
+  }
+}
+
+const writeConfigCache = (profileDir: string, hash: string): void => {
+  try {
+    const cachePath = join(profileDir, CONFIG_CACHE_FILE)
+    fs.writeFileSync(cachePath, JSON.stringify({ hash, timestamp: Date.now() }))
+  } catch {
+    // Non-critical — skip silently
+  }
+}
+
 export class JoplinSidecar {
   private config: SidecarConfig
   private childProcess: ChildProcess | null = null
+  private startPromise: Promise<Either<SidecarError, ChildProcess>> | null = null
 
   constructor(config: Partial<SidecarConfig> & { apiToken: string }) {
     this.config = {
@@ -231,9 +265,16 @@ export class JoplinSidecar {
   }
 
   async start(): Promise<Either<SidecarError, ChildProcess>> {
+    if (this.startPromise) return this.startPromise
+    this.startPromise = this.doStart()
+    return this.startPromise
+  }
+
+  private async doStart(): Promise<Either<SidecarError, ChildProcess>> {
     // Step 1: Find CLI
     const cliResult = findJoplinCli()
     if (Either.isLeft(cliResult)) {
+      this.startPromise = null
       return Left(
         cliResult.fold(
           (e) => e,
@@ -247,21 +288,29 @@ export class JoplinSidecar {
     )
     process.stderr.write(`[joplin-sidecar] Found CLI: ${cli}\n`)
 
-    // Step 2: Configure
-    const configResult = configureJoplin(cli, this.config)
-    if (Either.isLeft(configResult)) {
-      return Left(
-        configResult.fold(
-          (e) => e,
-          () => null as never,
-        ),
-      )
+    // Step 2: Configure (skip if config is cached)
+    const configHash = computeConfigHash(this.config)
+    if (isConfigCached(this.config.profileDir, configHash)) {
+      process.stderr.write("[joplin-sidecar] Configuration cached, skipping config step\n")
+    } else {
+      const configResult = configureJoplin(cli, this.config)
+      if (Either.isLeft(configResult)) {
+        this.startPromise = null
+        return Left(
+          configResult.fold(
+            (e) => e,
+            () => null as never,
+          ),
+        )
+      }
+      writeConfigCache(this.config.profileDir, configHash)
+      process.stderr.write("[joplin-sidecar] Configuration applied\n")
     }
-    process.stderr.write("[joplin-sidecar] Configuration applied\n")
 
     // Step 3: Spawn server
     const spawnResult = spawnServer(cli, this.config)
     if (Either.isLeft(spawnResult)) {
+      this.startPromise = null
       return Left(
         spawnResult.fold(
           (e) => e,
@@ -279,6 +328,7 @@ export class JoplinSidecar {
     // Step 4: Wait for ready
     const readyResult = await waitForReady(this.config.apiPort)
     if (Either.isLeft(readyResult)) {
+      this.startPromise = null
       return Left(
         readyResult.fold(
           (e) => e,

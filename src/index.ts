@@ -55,16 +55,21 @@ async function main(): Promise<void> {
       syncTarget: syncTarget.orUndefined() as SyncTarget | undefined,
     })
 
-    const startResult = await sidecar.start()
-    startResult.fold(
-      (err) => {
-        process.stderr.write(`Warning: Sidecar failed to start: ${err.message}\n`)
-        process.stderr.write("Attempting to connect to existing Joplin instance...\n")
-      },
-      () => {
-        process.stderr.write("Joplin sidecar started successfully\n")
-      },
-    )
+    // Fire-and-forget: start sidecar in background so the MCP server can respond to
+    // initialize immediately (avoids Claude Desktop's 60s timeout on Windows where
+    // sequential `joplin config` calls via npx are slow).
+    // ensureConnected() in server-core.ts will await or retry on first tool call.
+    sidecar.start().then((result) => {
+      result.fold(
+        (err) => {
+          process.stderr.write(`Warning: Sidecar failed to start: ${err.message}\n`)
+          process.stderr.write("Attempting to connect to existing Joplin instance...\n")
+        },
+        () => {
+          process.stderr.write("Joplin sidecar started successfully\n")
+        },
+      )
+    })
 
     host = sidecar.getHost()
     port = sidecar.getPort()
