@@ -1,10 +1,13 @@
-import { type ChildProcess, execSync, spawn } from "child_process"
+import { type ChildProcess, exec, execSync, spawn } from "child_process"
 import crypto from "crypto"
 import fs from "fs"
 import { Either, Left, Match, Option, Right } from "functype"
 import os from "os"
 import { dirname, join } from "path"
 import { fileURLToPath } from "url"
+import { promisify } from "util"
+
+const execAsync = promisify(exec)
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -56,7 +59,7 @@ const syncTargetId = (target: SyncTarget): number =>
     .case("joplin-cloud", () => 10)
     .default(() => 0)
 
-const findJoplinCli = (): Either<SidecarError, string> => {
+const findJoplinCli = async (): Promise<Either<SidecarError, string>> => {
   // 1. User override via env var
   const envCli = process.env.JOPLIN_CLI
   if (envCli) {
@@ -70,7 +73,8 @@ const findJoplinCli = (): Either<SidecarError, string> => {
 
   // 3. Global install
   try {
-    const joplinPath = execSync(`${whichCmd} joplin`, { encoding: "utf-8" }).trim().split("\n")[0]
+    const { stdout } = await execAsync(`${whichCmd} joplin`, { encoding: "utf-8", timeout: 10_000 })
+    const joplinPath = stdout.trim().split("\n")[0]
     return Right(joplinPath)
   } catch {
     // not found
@@ -78,7 +82,8 @@ const findJoplinCli = (): Either<SidecarError, string> => {
 
   // 4. npx fallback (auto-downloads on first run)
   try {
-    const npxPath = execSync(`${whichCmd} npx`, { encoding: "utf-8" }).trim().split("\n")[0]
+    const { stdout } = await execAsync(`${whichCmd} npx`, { encoding: "utf-8", timeout: 10_000 })
+    const npxPath = stdout.trim().split("\n")[0]
     process.stderr.write("[joplin-sidecar] No local joplin found, using npx (may download on first run)\n")
     return Right(npxPath)
   } catch {
@@ -93,9 +98,14 @@ const findJoplinCli = (): Either<SidecarError, string> => {
   )
 }
 
-const runJoplinConfig = (cmd: string, profileDir: string, key: string, value: string): Either<SidecarError, void> => {
+const runJoplinConfig = async (
+  cmd: string,
+  profileDir: string,
+  key: string,
+  value: string,
+): Promise<Either<SidecarError, void>> => {
   try {
-    execSync(`${cmd} config --profile ${profileDir} ${key} ${value}`, {
+    await execAsync(`${cmd} config --profile ${profileDir} ${key} ${value}`, {
       encoding: "utf-8",
       timeout: 30_000,
     })
@@ -105,7 +115,7 @@ const runJoplinConfig = (cmd: string, profileDir: string, key: string, value: st
   }
 }
 
-const configureJoplin = (cli: string, config: SidecarConfig): Either<SidecarError, void> => {
+const configureJoplin = async (cli: string, config: SidecarConfig): Promise<Either<SidecarError, void>> => {
   const cmd = cli.endsWith("npx") ? `${cli} joplin` : cli
 
   // Ensure profile directory exists
@@ -116,51 +126,72 @@ const configureJoplin = (cli: string, config: SidecarConfig): Either<SidecarErro
   }
 
   // Set API token
-  const tokenResult = runJoplinConfig(cmd, config.profileDir, "api.token", config.apiToken)
+  const tokenResult = await runJoplinConfig(cmd, config.profileDir, "api.token", config.apiToken)
   if (Either.isLeft(tokenResult)) return tokenResult
 
   // Set API port
-  const portResult = runJoplinConfig(cmd, config.profileDir, "api.port", String(config.apiPort))
+  const portResult = await runJoplinConfig(cmd, config.profileDir, "api.port", String(config.apiPort))
   if (Either.isLeft(portResult)) return portResult
 
   // Configure sync target
   const syncTarget = Option(config.syncTarget).orElse({ type: "none" } as SyncTarget)
-  const syncResult = runJoplinConfig(cmd, config.profileDir, "sync.target", String(syncTargetId(syncTarget)))
+  const syncResult = await runJoplinConfig(cmd, config.profileDir, "sync.target", String(syncTargetId(syncTarget)))
   if (Either.isLeft(syncResult)) return syncResult
 
   // Configure sync-target-specific settings
-  const configResults: Either<SidecarError, void>[] = []
-
   if (syncTarget.type === "filesystem") {
-    configResults.push(runJoplinConfig(cmd, config.profileDir, "sync.2.path", syncTarget.path))
+    const r = await runJoplinConfig(cmd, config.profileDir, "sync.2.path", syncTarget.path)
+    if (Either.isLeft(r)) return r
   } else if (syncTarget.type === "webdav") {
-    configResults.push(runJoplinConfig(cmd, config.profileDir, "sync.6.path", syncTarget.url))
-    configResults.push(runJoplinConfig(cmd, config.profileDir, "sync.6.username", syncTarget.username))
-    configResults.push(runJoplinConfig(cmd, config.profileDir, "sync.6.password", syncTarget.password))
+    for (const [k, v] of [
+      ["sync.6.path", syncTarget.url],
+      ["sync.6.username", syncTarget.username],
+      ["sync.6.password", syncTarget.password],
+    ]) {
+      const r = await runJoplinConfig(cmd, config.profileDir, k, v)
+      if (Either.isLeft(r)) return r
+    }
   } else if (syncTarget.type === "nextcloud") {
-    configResults.push(runJoplinConfig(cmd, config.profileDir, "sync.5.path", syncTarget.url))
-    configResults.push(runJoplinConfig(cmd, config.profileDir, "sync.5.username", syncTarget.username))
-    configResults.push(runJoplinConfig(cmd, config.profileDir, "sync.5.password", syncTarget.password))
+    for (const [k, v] of [
+      ["sync.5.path", syncTarget.url],
+      ["sync.5.username", syncTarget.username],
+      ["sync.5.password", syncTarget.password],
+    ]) {
+      const r = await runJoplinConfig(cmd, config.profileDir, k, v)
+      if (Either.isLeft(r)) return r
+    }
   } else if (syncTarget.type === "s3") {
-    configResults.push(runJoplinConfig(cmd, config.profileDir, "sync.8.path", syncTarget.bucket))
-    configResults.push(runJoplinConfig(cmd, config.profileDir, "sync.8.region", syncTarget.region))
-    configResults.push(runJoplinConfig(cmd, config.profileDir, "sync.8.username", syncTarget.accessKey))
-    configResults.push(runJoplinConfig(cmd, config.profileDir, "sync.8.password", syncTarget.secretKey))
+    for (const [k, v] of [
+      ["sync.8.path", syncTarget.bucket],
+      ["sync.8.region", syncTarget.region],
+      ["sync.8.username", syncTarget.accessKey],
+      ["sync.8.password", syncTarget.secretKey],
+    ]) {
+      const r = await runJoplinConfig(cmd, config.profileDir, k, v)
+      if (Either.isLeft(r)) return r
+    }
   } else if (syncTarget.type === "joplin-server") {
-    configResults.push(runJoplinConfig(cmd, config.profileDir, "sync.9.path", syncTarget.url))
-    configResults.push(runJoplinConfig(cmd, config.profileDir, "sync.9.username", syncTarget.email))
-    configResults.push(runJoplinConfig(cmd, config.profileDir, "sync.9.password", syncTarget.password))
+    for (const [k, v] of [
+      ["sync.9.path", syncTarget.url],
+      ["sync.9.username", syncTarget.email],
+      ["sync.9.password", syncTarget.password],
+    ]) {
+      const r = await runJoplinConfig(cmd, config.profileDir, k, v)
+      if (Either.isLeft(r)) return r
+    }
   } else if (syncTarget.type === "joplin-cloud") {
-    configResults.push(runJoplinConfig(cmd, config.profileDir, "sync.10.username", syncTarget.email))
-    configResults.push(runJoplinConfig(cmd, config.profileDir, "sync.10.password", syncTarget.password))
+    for (const [k, v] of [
+      ["sync.10.username", syncTarget.email],
+      ["sync.10.password", syncTarget.password],
+    ]) {
+      const r = await runJoplinConfig(cmd, config.profileDir, k, v)
+      if (Either.isLeft(r)) return r
+    }
   }
-
-  const failed = configResults.find((r) => Either.isLeft(r))
-  if (failed) return failed
 
   // Set sync interval
   const interval = Option(config.syncInterval).orElse(300)
-  return runJoplinConfig(cmd, config.profileDir, "sync.interval", String(interval))
+  return await runJoplinConfig(cmd, config.profileDir, "sync.interval", String(interval))
 }
 
 const spawnServer = (cli: string, config: SidecarConfig): Either<SidecarError, ChildProcess> => {
@@ -272,7 +303,7 @@ export class JoplinSidecar {
 
   private async doStart(): Promise<Either<SidecarError, ChildProcess>> {
     // Step 1: Find CLI
-    const cliResult = findJoplinCli()
+    const cliResult = await findJoplinCli()
     if (Either.isLeft(cliResult)) {
       this.startPromise = null
       return Left(
@@ -293,7 +324,7 @@ export class JoplinSidecar {
     if (isConfigCached(this.config.profileDir, configHash)) {
       process.stderr.write("[joplin-sidecar] Configuration cached, skipping config step\n")
     } else {
-      const configResult = configureJoplin(cli, this.config)
+      const configResult = await configureJoplin(cli, this.config)
       if (Either.isLeft(configResult)) {
         this.startPromise = null
         return Left(
