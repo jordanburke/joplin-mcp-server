@@ -20,7 +20,6 @@ export default defineConfig({
   target: "node16",
   outDir: "dist",
   platform: "node",
-  external: ["better-sqlite3"],
   treeshake: true,
   define: {
     __VERSION__: JSON.stringify(pkg.version),

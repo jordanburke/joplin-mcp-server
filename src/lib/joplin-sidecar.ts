@@ -1,4 +1,4 @@
-import { type ChildProcess, exec, execSync, spawn } from "child_process"
+import { type ChildProcess, exec, execFile, execSync, spawn } from "child_process"
 import crypto from "crypto"
 import fs from "fs"
 import { Either, Left, Match, Option, Right } from "functype"
@@ -6,9 +6,8 @@ import os from "os"
 import { join } from "path"
 import { promisify } from "util"
 
-import { writeJoplinSettings } from "./joplin-settings.js"
-
 const execAsync = promisify(exec)
+const execFileAsync = promisify(execFile)
 
 const isWindows = process.platform === "win32"
 const whichCmd = isWindows ? "where" : "which"
@@ -187,6 +186,27 @@ const buildSettingsRecord = (config: SidecarConfig): Record<string, string> => {
   return settings
 }
 
+const runJoplinConfig = async (cli: string, profileDir: string, key: string, value: string): Promise<void> => {
+  const cmd = cli.endsWith("npx") ? "npx" : cli
+  const args = cli.endsWith("npx")
+    ? ["joplin", "config", "--profile", profileDir, key, value]
+    : ["config", "--profile", profileDir, key, value]
+  await execFileAsync(cmd, args, { encoding: "utf-8", timeout: 30_000, shell: isWindows })
+}
+
+const configureJoplin = async (cli: string, config: SidecarConfig): Promise<Either<SidecarError, void>> => {
+  const settings = buildSettingsRecord(config)
+  try {
+    fs.mkdirSync(config.profileDir, { recursive: true })
+    for (const [key, value] of Object.entries(settings)) {
+      await runJoplinConfig(cli, config.profileDir, key, value)
+    }
+    return Right(undefined as void)
+  } catch (e) {
+    return Left(sidecarError("CONFIG_FAILED", "Failed to configure Joplin via CLI", e))
+  }
+}
+
 const spawnServer = (cli: string, config: SidecarConfig): Either<SidecarError, ChildProcess> => {
   try {
     const cmd = cli.endsWith("npx") ? "npx" : cli
@@ -346,13 +366,12 @@ export class JoplinSidecar {
     )
     process.stderr.write(`[joplin-sidecar] Found CLI: ${cli}\n`)
 
-    // Step 2: Configure via direct SQLite write (skip if config is cached)
+    // Step 2: Configure via CLI (skip if config is cached)
     const configHash = computeConfigHash(this.config)
     if (isConfigCached(this.config.profileDir, configHash)) {
       process.stderr.write("[joplin-sidecar] Configuration cached, skipping config step\n")
     } else {
-      const settings = buildSettingsRecord(this.config)
-      const configResult = writeJoplinSettings(this.config.profileDir, settings)
+      const configResult = await configureJoplin(cli, this.config)
       if (Either.isLeft(configResult)) {
         return Left(
           configResult.fold(
@@ -362,7 +381,7 @@ export class JoplinSidecar {
         )
       }
       writeConfigCache(this.config.profileDir, configHash)
-      process.stderr.write("[joplin-sidecar] Configuration applied (direct SQLite write)\n")
+      process.stderr.write("[joplin-sidecar] Configuration applied via CLI\n")
     }
 
     // Step 3: Probe port before spawning
