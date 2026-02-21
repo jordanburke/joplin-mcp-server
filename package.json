@@ -1,6 +1,6 @@
 {
   "name": "joplin-mcp-server",
-  "version": "1.4.1",
+  "version": "2.0.0",
   "description": "MCP server for Joplin",
   "type": "module",
   "main": "dist/index.js",
@@ -69,6 +69,9 @@
     "url": "https://github.com/jordanburke/joplin-mcp-server/issues"
   },
   "homepage": "https://github.com/jordanburke/joplin-mcp-server#readme",
+  "engines": {
+    "node": ">=18"
+  },
   "publishConfig": {
     "access": "public"
   },

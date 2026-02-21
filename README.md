@@ -226,19 +226,20 @@ Find your Windows IP with `ipconfig` on Windows or `cat /etc/resolv.conf | grep 
 
 ## Available Tools
 
-| Tool             | Description                               |
-| ---------------- | ----------------------------------------- |
-| `list_notebooks` | Retrieve the complete notebook hierarchy  |
-| `search_notes`   | Search for notes by query string          |
-| `read_notebook`  | Read contents of a specific notebook      |
-| `read_note`      | Read full content of a specific note      |
-| `read_multinote` | Read multiple notes at once               |
-| `create_note`    | Create a new note                         |
-| `create_folder`  | Create a new notebook                     |
-| `edit_note`      | Edit an existing note                     |
-| `edit_folder`    | Edit an existing notebook                 |
-| `delete_note`    | Delete a note (requires confirmation)     |
-| `delete_folder`  | Delete a notebook (requires confirmation) |
+| Tool             | Description                                           |
+| ---------------- | ----------------------------------------------------- |
+| `list_notebooks` | Retrieve the complete notebook hierarchy              |
+| `search_notes`   | Search for notes by query string                      |
+| `read_notebook`  | Read contents of a specific notebook                  |
+| `read_note`      | Read full content of a specific note                  |
+| `read_multinote` | Read multiple notes at once                           |
+| `create_note`    | Create a new note                                     |
+| `create_folder`  | Create a new notebook                                 |
+| `edit_note`      | Edit an existing note                                 |
+| `edit_folder`    | Edit an existing notebook                             |
+| `delete_note`    | Delete a note (requires confirmation)                 |
+| `delete_folder`  | Delete a notebook (requires confirmation)             |
+| `sync`           | Trigger a Joplin sync with the configured sync target |
 
 ## Development
 

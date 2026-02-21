@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+declare const __VERSION__: string
+
 import { Server } from "@modelcontextprotocol/sdk/server/index.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { type CallToolRequest, CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js"
@@ -102,7 +104,7 @@ async function startStdioServer(host: string, port: number, token: string, sidec
   const server = new Server(
     {
       name: "joplin-mcp-server",
-      version: "1.0.1",
+      version: __VERSION__,
     },
     {
       capabilities: {

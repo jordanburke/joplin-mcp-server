@@ -22,3 +22,12 @@ eslint.config.*
 
 # Docker
 Dockerfile
+
+# Project config
+.mcp.json
+CLAUDE.md
+ts-builds.config.json
+tsdown.config.ts
+
+# CI/CD
+.github/
