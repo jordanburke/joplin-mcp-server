@@ -1,7 +1,7 @@
 import fs from "fs"
 import { Either, Left, Option, Right } from "functype"
 import os from "os"
-import { resolve } from "path"
+import { join, resolve } from "path"
 
 import type { SyncTarget } from "./joplin-sidecar.js"
 
@@ -18,9 +18,52 @@ const expandVars = (p: string): string =>
     .replace(/\$\{(\w+)\}/g, (_, name) => process.env[name] ?? "")
     .replace(/\$(\w+)/g, (_, name) => process.env[name] ?? "")
 
+const isWsl = (() => {
+  try {
+    return fs.readFileSync("/proc/version", "utf-8").toLowerCase().includes("microsoft")
+  } catch {
+    return false
+  }
+})()
+
+const isNonEmptyDir = (p: string): boolean => {
+  try {
+    const entries = fs.readdirSync(p)
+    return entries.length > 0
+  } catch {
+    return false
+  }
+}
+
+const resolveWslPath = (linuxPath: string, relativeToHome: string): string => {
+  if (!isWsl) return linuxPath
+  if (fs.existsSync(linuxPath) && isNonEmptyDir(linuxPath)) return linuxPath
+  try {
+    const usersDir = "/mnt/c/Users"
+    const users = fs
+      .readdirSync(usersDir)
+      .filter((u) => !["Public", "Default", "Default User", "All Users"].includes(u))
+    for (const user of users) {
+      const winPath = join(usersDir, user, relativeToHome)
+      if (isNonEmptyDir(winPath)) {
+        process.stderr.write(`[wsl] Path ${linuxPath} empty/missing, using Windows path: ${winPath}\n`)
+        return winPath
+      }
+    }
+  } catch {
+    // /mnt/c not accessible — fall through
+  }
+  return linuxPath
+}
+
 const expandPath = (p: string): string => {
   const expanded = expandVars(p)
-  return expanded.startsWith("~/") || expanded === "~" ? expanded.replace("~", os.homedir()) : expanded
+  if (expanded.startsWith("~/") || expanded === "~") {
+    const linuxPath = expanded.replace("~", os.homedir())
+    const relativeToHome = expanded.slice(2) // strip ~/
+    return resolveWslPath(linuxPath, relativeToHome)
+  }
+  return expanded
 }
 
 const extractArg = (args: string[], flag: string): Option<string> => {

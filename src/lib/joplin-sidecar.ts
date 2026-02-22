@@ -1,4 +1,4 @@
-import { type ChildProcess, exec, execFile, execSync, spawn } from "child_process"
+import { type ChildProcess, exec, execFile, spawn } from "child_process"
 import crypto from "crypto"
 import fs from "fs"
 import { Either, Left, Match, Option, Right } from "functype"
@@ -11,6 +11,9 @@ const execFileAsync = promisify(execFile)
 
 const isWindows = process.platform === "win32"
 const whichCmd = isWindows ? "where" : "which"
+
+export const DEFAULT_API_PORT = 41184
+const MAX_PORT_ATTEMPTS = 10
 
 export type SyncTarget =
   | { type: "none" }
@@ -41,6 +44,7 @@ export type SidecarError = {
     | "SYNC_FAILED"
     | "PORT_CONFLICT"
     | "PORT_OCCUPIED"
+    | "PORT_EXHAUSTED"
   message: string
   cause?: unknown
 }
@@ -106,6 +110,27 @@ const probePort = async (port: number, token: string): Promise<PortProbeResult> 
     // Timeout or other error = port is occupied but not responding to HTTP
     return "occupied_unresponsive"
   }
+}
+
+type PortResolution =
+  | { outcome: "reuse_existing"; port: number; desktopDetected: boolean }
+  | { outcome: "free"; port: number; desktopDetected: boolean }
+  | { outcome: "exhausted" }
+
+const resolveAvailablePort = async (startPort: number, token: string): Promise<PortResolution> => {
+  let desktopDetected = false
+  for (let port = startPort; port < startPort + MAX_PORT_ATTEMPTS; port++) {
+    const status = await probePort(port, token)
+    if (status === "free") return { outcome: "free", port, desktopDetected }
+    if (status === "joplin_ours") return { outcome: "reuse_existing", port, desktopDetected }
+    if (status === "joplin_foreign") {
+      desktopDetected = true
+      process.stderr.write(`[joplin-sidecar] Port ${port}: Joplin Desktop detected (different token), skipping\n`)
+    } else {
+      process.stderr.write(`[joplin-sidecar] Port ${port} occupied (${status}), trying next...\n`)
+    }
+  }
+  return { outcome: "exhausted" }
 }
 
 const findJoplinCli = async (): Promise<Either<SidecarError, string>> => {
@@ -332,15 +357,42 @@ export class JoplinSidecar {
   private config: SidecarConfig
   private childProcess: ChildProcess | null = null
   private startPromise: Promise<Either<SidecarError, ChildProcess>> | null = null
+  private portResolution: PortResolution | null = null
 
   constructor(config: Partial<SidecarConfig> & { apiToken: string }) {
     this.config = {
       profileDir: config.profileDir ?? join(os.homedir(), ".config", "joplin-mcp"),
-      apiPort: config.apiPort ?? 41184,
+      apiPort: config.apiPort ?? DEFAULT_API_PORT,
       apiToken: config.apiToken,
       syncTarget: config.syncTarget,
       syncInterval: config.syncInterval,
     }
+  }
+
+  async resolvePort(): Promise<Either<SidecarError, number>> {
+    const resolution = await resolveAvailablePort(this.config.apiPort, this.config.apiToken)
+    this.portResolution = resolution
+    if (resolution.outcome === "exhausted") {
+      const lastPort = this.config.apiPort + MAX_PORT_ATTEMPTS - 1
+      return Left(
+        sidecarError(
+          "PORT_EXHAUSTED",
+          `All ports ${this.config.apiPort}-${lastPort} are occupied. Free a port or stop other Joplin instances.`,
+        ),
+      )
+    }
+    this.config.apiPort = resolution.port
+    if (resolution.desktopDetected) {
+      process.stderr.write(
+        "[joplin-sidecar] WARNING: Joplin Desktop is running. The sidecar uses a separate database.\n" +
+          "[joplin-sidecar] Notes will sync between them only if both are configured with the same sync target.\n",
+      )
+    }
+    return Right(resolution.port)
+  }
+
+  isDesktopDetected(): boolean {
+    return this.portResolution?.outcome !== "exhausted" && (this.portResolution?.desktopDetected ?? false)
   }
 
   async start(): Promise<Either<SidecarError, ChildProcess>> {
@@ -366,7 +418,28 @@ export class JoplinSidecar {
     )
     process.stderr.write(`[joplin-sidecar] Found CLI: ${cli}\n`)
 
-    // Step 2: Configure via CLI (skip if config is cached)
+    // Step 2: Resolve port if not already done (defensive fallback)
+    if (!this.portResolution) {
+      const portResult = await this.resolvePort()
+      if (Either.isLeft(portResult)) {
+        return Left(
+          portResult.fold(
+            (e) => e,
+            () => null as never,
+          ),
+        )
+      }
+    }
+
+    // Step 3: If we found an existing instance with our token, reuse it
+    if (this.portResolution?.outcome === "reuse_existing") {
+      process.stderr.write(
+        `[joplin-sidecar] Existing Joplin server with matching token on port ${this.config.apiPort}, reusing\n`,
+      )
+      return Right(this.childProcess ?? (null as unknown as ChildProcess))
+    }
+
+    // Step 4: Configure via CLI (skip if config is cached)
     const configHash = computeConfigHash(this.config)
     if (isConfigCached(this.config.profileDir, configHash)) {
       process.stderr.write("[joplin-sidecar] Configuration cached, skipping config step\n")
@@ -384,47 +457,7 @@ export class JoplinSidecar {
       process.stderr.write("[joplin-sidecar] Configuration applied via CLI\n")
     }
 
-    // Step 3: Probe port before spawning
-    const portStatus = await probePort(this.config.apiPort, this.config.apiToken)
-    process.stderr.write(`[joplin-sidecar] Port ${this.config.apiPort} status: ${portStatus}\n`)
-
-    if (portStatus === "joplin_ours") {
-      process.stderr.write("[joplin-sidecar] Existing Joplin server with matching token, reusing\n")
-      return Right(this.childProcess ?? (null as unknown as ChildProcess))
-    }
-
-    if (portStatus === "joplin_foreign") {
-      return Left(
-        sidecarError(
-          "PORT_CONFLICT",
-          `Port ${this.config.apiPort} is occupied by a Joplin server with a different API token. ` +
-            `Stop the other Joplin instance or use a different port (set JOPLIN_PORT).`,
-        ),
-      )
-    }
-
-    if (portStatus === "occupied_other") {
-      return Left(
-        sidecarError(
-          "PORT_OCCUPIED",
-          `Port ${this.config.apiPort} is occupied by a non-Joplin process. ` +
-            `Free the port or use a different one (set JOPLIN_PORT).`,
-        ),
-      )
-    }
-
-    if (portStatus === "occupied_unresponsive") {
-      return Left(
-        sidecarError(
-          "PORT_OCCUPIED",
-          `Port ${this.config.apiPort} is occupied but not responding to HTTP requests. ` +
-            `A Joplin instance or another process may be stuck. ` +
-            `Try restarting Joplin or kill the process using port ${this.config.apiPort}.`,
-        ),
-      )
-    }
-
-    // Step 4: Spawn server (port is free, skip if already spawned from a previous attempt)
+    // Step 5: Spawn server (port is free, skip if already spawned from a previous attempt)
     if (!this.childProcess) {
       const spawnResult = spawnServer(cli, this.config)
       if (Either.isLeft(spawnResult)) {
@@ -447,7 +480,7 @@ export class JoplinSidecar {
       )
     }
 
-    // Step 5: Wait for ready
+    // Step 6: Wait for ready
     const readyResult = await waitForReady(this.config.apiPort, this.config.apiToken, this.childProcess)
     if (Either.isLeft(readyResult)) {
       return Left(
@@ -496,24 +529,6 @@ export class JoplinSidecar {
       const response = await fetchWithTimeout(`http://127.0.0.1:${this.config.apiPort}/ping`, 5_000)
       if (!response.ok) return Left(new Error(`Health check failed: ${response.status}`))
       return Right(true as const)
-    } catch (error) {
-      return Left(error instanceof Error ? error : new Error(String(error)))
-    }
-  }
-
-  async sync(): Promise<Either<Error, string>> {
-    try {
-      let cmd: string
-      try {
-        cmd = execSync(`${whichCmd} joplin`, { encoding: "utf-8" }).trim().split("\n")[0]
-      } catch {
-        cmd = "npx joplin"
-      }
-      const output = execSync(`${cmd} sync --profile ${this.config.profileDir}`, {
-        encoding: "utf-8",
-        timeout: 120_000,
-      })
-      return Right(output)
     } catch (error) {
       return Left(error instanceof Error ? error : new Error(String(error)))
     }

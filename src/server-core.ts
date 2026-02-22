@@ -184,13 +184,28 @@ export class JoplinServerManager {
   }
 
   async sync(): Promise<string> {
-    if (!this.config.sidecar) {
-      return "Sync not available in external mode. Sync is managed by your Joplin instance directly."
-    }
-    const result = await this.config.sidecar.sync()
+    await this.ensureConnected()
+    const desktopWarning = this.config.sidecar?.isDesktopDetected()
+      ? "\n\nNote: Joplin Desktop is also running. The sidecar and Desktop use separate databases. " +
+        "Notes sync between them only if both are configured with the same sync target."
+      : ""
+    // Try triggering sync via the Joplin REST API (POST /services/sync)
+    const result = await this.apiClient.post<Record<string, unknown>>("/services/sync", { action: "start" })
     return result.fold(
-      (error) => `Sync failed: ${error.message}`,
-      (output) => `Sync completed successfully.\n\n${output}`,
+      (error) => {
+        const msg = error.message || String(error)
+        // 404 or "No action API" = Joplin instance doesn't expose sync as a REST service
+        // This is normal for Joplin Terminal CLI — it auto-syncs on its configured interval
+        if (msg.includes("404") || msg.includes("No action API") || msg.includes("No such service")) {
+          return (
+            "Sync is managed automatically by the Joplin server on its configured interval " +
+            "(default: every 5 minutes). On-demand sync is not available via the Joplin Terminal API." +
+            desktopWarning
+          )
+        }
+        return `Sync failed: ${msg}${desktopWarning}`
+      },
+      () => `Sync triggered successfully.${desktopWarning}`,
     )
   }
 }

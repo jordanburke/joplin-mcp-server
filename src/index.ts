@@ -9,7 +9,7 @@ import fs from "fs"
 import path from "path"
 import { fileURLToPath } from "url"
 
-import { JoplinSidecar, type SyncTarget } from "./lib/joplin-sidecar.js"
+import { DEFAULT_API_PORT, JoplinSidecar, type SyncTarget } from "./lib/joplin-sidecar.js"
 import parseArgs from "./lib/parse-args.js"
 import { initializeJoplinManager } from "./server-core.js"
 import { startFastMCPServer } from "./server-fastmcp.js"
@@ -64,20 +64,26 @@ async function main(): Promise<void> {
   if (externalMode) {
     // External mode — connect to existing Joplin instance (e.g. Windows desktop from WSL)
     host = externalHost || "127.0.0.1"
-    port = externalPort || 41184
+    port = externalPort || DEFAULT_API_PORT
     process.stderr.write(`External mode: connecting to Joplin at ${host}:${port}\n`)
   } else {
     // Sidecar mode — spawn and manage Joplin Terminal
     sidecar = new JoplinSidecar({
       profileDir,
-      apiPort: 41184,
+      apiPort: DEFAULT_API_PORT,
       apiToken: joplinToken,
       syncTarget: syncTarget.orUndefined() as SyncTarget | undefined,
     })
 
-    // Fire-and-forget: start sidecar in background so the MCP server can respond to
-    // initialize immediately (avoids Claude Desktop's 60s timeout on Windows where
-    // sequential `joplin config` calls via npx are slow).
+    // Phase 1: Resolve port (fast — a few HTTP probes).
+    // Must complete before getPort() so downstream gets the correct port.
+    const portResult = await sidecar.resolvePort()
+    portResult.fold(
+      (err) => process.stderr.write(`Warning: Port resolution failed: ${err.message}\n`),
+      (p) => process.stderr.write(`Sidecar will use port ${p}\n`),
+    )
+
+    // Phase 2: Fire-and-forget the slow startup (CLI config, spawn, wait).
     // ensureConnected() in server-core.ts will await or retry on first tool call.
     sidecar.start().then((result) => {
       result.fold(

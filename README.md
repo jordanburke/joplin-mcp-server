@@ -4,7 +4,7 @@
 [![CI](https://github.com/jordanburke/joplin-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/jordanburke/joplin-mcp-server/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A self-contained MCP (Model Context Protocol) server for [Joplin](https://joplinapp.org/). Bundles the Joplin Terminal CLI as a dependency — no desktop app, no global installs, no external processes to manage.
+A self-contained MCP (Model Context Protocol) server for [Joplin](https://joplinapp.org/). Bundles the Joplin Terminal CLI as a dependency — no desktop app, no global installs, no external processes to manage. Coexists with Joplin Desktop via automatic port negotiation.
 
 ## Quick Start
 
@@ -19,6 +19,8 @@ That's it. The server spawns its own Joplin Terminal instance (sidecar mode), sy
 ### Sidecar Mode (Default)
 
 The server bundles `joplin` as an npm dependency and manages its own Joplin Terminal process. No Joplin desktop app needed — the sidecar handles everything: data storage, sync, and the REST API.
+
+If Joplin Desktop is already running, the sidecar automatically finds a free port (scanning 41184-41193) and runs alongside it. Both instances stay in sync if configured with the same sync target.
 
 ```bash
 # Basic usage — sidecar starts automatically
@@ -99,6 +101,8 @@ The `--sync-path` and `--profile` options support `~` and environment variable e
 ```
 
 This works in MCP client configs (`.mcp.json`, Claude Desktop) where shell expansion isn't available.
+
+**WSL auto-detection:** On WSL, if a `~/` path is empty or missing, the server automatically checks the corresponding Windows path at `/mnt/c/Users/<user>/...`. This means `--sync-path ~/OneDrive/Apps/Joplin` just works on WSL without needing the full `/mnt/c/...` path.
 
 ### Sync Targets
 
@@ -203,20 +207,27 @@ docker run -e JOPLIN_TOKEN=your_token -p 3000:3000 joplin-mcp
 
 ## WSL Setup
 
-Running in WSL? The sidecar architecture makes this straightforward — no Windows port forwarding needed.
+Running in WSL? The sidecar architecture makes this straightforward — no Windows port forwarding needed. The server auto-detects WSL and handles path resolution between Linux and Windows filesystems.
 
 ### Filesystem Sync via OneDrive (Recommended)
 
 Both your Windows Joplin desktop and the WSL sidecar sync to the same OneDrive folder. They see the same notes without needing to talk to each other directly.
 
 ```bash
-# Point the sidecar at your OneDrive Joplin sync folder
+# Uses ~/OneDrive — automatically resolves to /mnt/c/Users/YourName/OneDrive on WSL
 npx joplin-mcp-server --token your_token \
   --sync-target filesystem \
-  --sync-path /mnt/c/Users/YourName/OneDrive/Joplin
+  --sync-path ~/OneDrive/Apps/Joplin
+
+# Or specify the Windows path explicitly
+npx joplin-mcp-server --token your_token \
+  --sync-target filesystem \
+  --sync-path /mnt/c/Users/YourName/OneDrive/Apps/Joplin
 ```
 
-In your Joplin desktop app, configure sync to the same OneDrive folder: **Tools > Options > Synchronisation > File system > /Users/YourName/OneDrive/Joplin**
+In your Joplin desktop app, configure sync to the same OneDrive folder: **Tools > Options > Synchronisation > File system > /Users/YourName/OneDrive/Apps/Joplin**
+
+> **Joplin Desktop coexistence:** If Desktop is running on port 41184, the sidecar automatically uses the next available port. A warning is logged at startup reminding you that both instances use separate databases and need the same sync target to stay in sync.
 
 ### Cloud Sync
 
@@ -248,20 +259,20 @@ Find your Windows IP with `ipconfig` on Windows or `cat /etc/resolv.conf | grep 
 
 ## Available Tools
 
-| Tool             | Description                                           |
-| ---------------- | ----------------------------------------------------- |
-| `list_notebooks` | Retrieve the complete notebook hierarchy              |
-| `search_notes`   | Search for notes by query string                      |
-| `read_notebook`  | Read contents of a specific notebook                  |
-| `read_note`      | Read full content of a specific note                  |
-| `read_multinote` | Read multiple notes at once                           |
-| `create_note`    | Create a new note                                     |
-| `create_folder`  | Create a new notebook                                 |
-| `edit_note`      | Edit an existing note                                 |
-| `edit_folder`    | Edit an existing notebook                             |
-| `delete_note`    | Delete a note (requires confirmation)                 |
-| `delete_folder`  | Delete a notebook (requires confirmation)             |
-| `sync`           | Trigger a Joplin sync with the configured sync target |
+| Tool             | Description                                      |
+| ---------------- | ------------------------------------------------ |
+| `list_notebooks` | Retrieve the complete notebook hierarchy         |
+| `search_notes`   | Search for notes by query string                 |
+| `read_notebook`  | Read contents of a specific notebook             |
+| `read_note`      | Read full content of a specific note             |
+| `read_multinote` | Read multiple notes at once                      |
+| `create_note`    | Create a new note                                |
+| `create_folder`  | Create a new notebook                            |
+| `edit_note`      | Edit an existing note                            |
+| `edit_folder`    | Edit an existing notebook                        |
+| `delete_note`    | Delete a note (requires confirmation)            |
+| `delete_folder`  | Delete a notebook (requires confirmation)        |
+| `sync`           | Trigger sync (auto-syncs every 5 min by default) |
 
 ## Development
 
