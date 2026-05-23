@@ -76,22 +76,22 @@
     "access": "public"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.26.0",
-    "axios": "^1.13.5",
-    "dotenv": "^17.3.1",
-    "fastmcp": "^3.33.0",
-    "functype": "^0.46.2",
-    "joplin": "^3.5.1",
-    "zod": "^4.3.6"
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "axios": "^1.16.1",
+    "dotenv": "^17.4.2",
+    "fastmcp": "^4.0.1",
+    "functype": "^0.60.7",
+    "joplin": "^3.6.2",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/node": "^22.19.11",
+    "@types/node": "^22.19.19",
     "cross-env": "^10.1.0",
     "rimraf": "^6.1.3",
-    "ts-builds": "^2.4.0",
-    "tsdown": "^0.20.3",
-    "tsx": "^4.21.0",
-    "vitest": "^4.0.18"
+    "ts-builds": "^2.8.1",
+    "tsdown": "^0.22.0",
+    "tsx": "^4.22.3",
+    "vitest": "^4.1.7"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -99,5 +99,5 @@
       "keytar"
     ]
   },
-  "packageManager": "pnpm@10.30.1+sha512.3590e550d5384caa39bd5c7c739f72270234b2f6059e13018f975c313b1eb9fefcc09714048765d4d9efe961382c312e624572c0420762bdc5d5940cdf9be73a"
+  "packageManager": "pnpm@10.33.4+sha512.1c67b3b359b2d408119ba1ed289f34b8fc3c6873412bec6fd264fbdc82489e510fcbecb9ce9d22dae7f3b76269d8441046014bdca53b9979cd7a561ad631b800"
 }
