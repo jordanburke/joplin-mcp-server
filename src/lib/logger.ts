@@ -11,7 +11,7 @@ class Logger {
   private readonly enableTimestamp: boolean
 
   constructor(options: LoggerOptions = {}) {
-    this.logLevel = options.logLevel || "info"
+    this.logLevel = options.logLevel ?? "info"
     this.logLevels = {
       error: 0,
       warn: 1,
@@ -58,7 +58,7 @@ class Logger {
     }
   }
 
-  logObject(level: LogLevel, label: string, obj: any): void {
+  logObject(level: LogLevel, label: string, obj: unknown): void {
     if (this.shouldLog(level)) {
       const message = `${label}: ${JSON.stringify(obj, null, 2)}`
       switch (level) {
@@ -74,13 +74,11 @@ class Logger {
         case "debug":
           this.debug(message)
           break
-        default:
-          this.info(message)
       }
     }
   }
 }
 
-const logger = new Logger({ logLevel: (process.env.LOG_LEVEL as LogLevel) || "info" })
+const logger = new Logger({ logLevel: (process.env.LOG_LEVEL as LogLevel | undefined) ?? "info" })
 
 export default logger

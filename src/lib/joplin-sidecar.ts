@@ -82,8 +82,8 @@ type PortProbeResult = "free" | "joplin_ours" | "joplin_foreign" | "occupied_oth
 
 const isConnectionRefused = (err: unknown): boolean => {
   const e = err as { cause?: { code?: string; errors?: Array<{ code?: string }> } }
-  if (e?.cause?.code === "ECONNREFUSED") return true
-  if (e?.cause?.errors?.some((inner) => inner?.code === "ECONNREFUSED")) return true
+  if (e.cause?.code === "ECONNREFUSED") return true
+  if (e.cause?.errors?.some((inner) => inner.code === "ECONNREFUSED") === true) return true
   return false
 }
 
@@ -118,19 +118,19 @@ type PortResolution =
   | { outcome: "exhausted" }
 
 const resolveAvailablePort = async (startPort: number, token: string): Promise<PortResolution> => {
-  let desktopDetected = false
-  for (let port = startPort; port < startPort + MAX_PORT_ATTEMPTS; port++) {
+  const tryPort = async (port: number, desktopDetected: boolean): Promise<PortResolution> => {
+    if (port >= startPort + MAX_PORT_ATTEMPTS) return { outcome: "exhausted" }
     const status = await probePort(port, token)
     if (status === "free") return { outcome: "free", port, desktopDetected }
     if (status === "joplin_ours") return { outcome: "reuse_existing", port, desktopDetected }
     if (status === "joplin_foreign") {
-      desktopDetected = true
       process.stderr.write(`[joplin-sidecar] Port ${port}: Joplin Desktop detected (different token), skipping\n`)
-    } else {
-      process.stderr.write(`[joplin-sidecar] Port ${port} occupied (${status}), trying next...\n`)
+      return tryPort(port + 1, true)
     }
+    process.stderr.write(`[joplin-sidecar] Port ${port} occupied (${status}), trying next...\n`)
+    return tryPort(port + 1, desktopDetected)
   }
-  return { outcome: "exhausted" }
+  return tryPort(startPort, false)
 }
 
 const findJoplinCli = async (): Promise<Either<SidecarError, string>> => {
@@ -245,11 +245,11 @@ const spawnServer = (cli: string, config: SidecarConfig): Either<SidecarError, C
       shell: isWindows,
     })
 
-    proc.stderr?.on("data", (data: Buffer) => {
+    proc.stderr.on("data", (data: Buffer) => {
       process.stderr.write(`[joplin-sidecar] ${data.toString()}`)
     })
 
-    proc.stdout?.on("data", (data: Buffer) => {
+    proc.stdout.on("data", (data: Buffer) => {
       process.stderr.write(`[joplin-sidecar] ${data.toString()}`)
     })
 
@@ -272,22 +272,26 @@ const waitForReady = async (
 ): Promise<Either<SidecarError, true>> => {
   const deadline = Date.now() + 60_000
 
-  // Track if the spawned process exits early (e.g., port already taken)
-  let procExitCode: number | null = null
+  // Track if the spawned process exits early (e.g., port already taken).
+  // Mutable object container keeps the binding `const` while allowing the
+  // exit handler to record the code asynchronously.
+  const procExitState: { code: number | null } = { code: null }
   if (proc) {
     proc.once("exit", (code) => {
-      procExitCode = code
+      procExitState.code = code
     })
   }
 
-  for (let i = 0; i < maxRetries; i++) {
-    if (Date.now() > deadline) break
+  const attempt = async (i: number): Promise<Either<SidecarError, true>> => {
+    if (i >= maxRetries || Date.now() > deadline) {
+      return Left(sidecarError("HEALTH_CHECK_FAILED", "Joplin server did not become ready within 60s"))
+    }
 
-    if (procExitCode !== null) {
+    if (procExitState.code !== null) {
       return Left(
         sidecarError(
           "SPAWN_FAILED",
-          `Joplin server process exited unexpectedly (code ${procExitCode}). ` +
+          `Joplin server process exited unexpectedly (code ${procExitState.code}). ` +
             `Port ${port} may already be in use by another Joplin instance or process.`,
         ),
       )
@@ -296,7 +300,6 @@ const waitForReady = async (
     try {
       const pingResponse = await fetchWithTimeout(`http://127.0.0.1:${port}/ping`)
       if (pingResponse.ok) {
-        // Verify auth with token
         try {
           const authResponse = await fetchWithTimeout(
             `http://127.0.0.1:${port}/folders?token=${encodeURIComponent(token)}&limit=1`,
@@ -316,9 +319,10 @@ const waitForReady = async (
       // Not ready yet
     }
     await new Promise((resolve) => setTimeout(resolve, intervalMs))
+    return attempt(i + 1)
   }
 
-  return Left(sidecarError("HEALTH_CHECK_FAILED", "Joplin server did not become ready within 60s"))
+  return attempt(0)
 }
 
 const CONFIG_CACHE_FILE = ".mcp-configured"

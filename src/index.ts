@@ -23,7 +23,7 @@ const isHttpMode = transport === "http"
 // External mode: JOPLIN_HOST/JOPLIN_PORT set = connect directly, skip sidecar
 const externalHost = process.env.JOPLIN_HOST
 const externalPort = process.env.JOPLIN_PORT ? parseInt(process.env.JOPLIN_PORT, 10) : undefined
-const externalMode = !!(externalHost || externalPort)
+const externalMode = externalHost !== undefined || externalPort !== undefined
 
 // Token is required for external mode, auto-generated for sidecar mode
 if (!process.env.JOPLIN_TOKEN && externalMode) {
@@ -55,59 +55,59 @@ const joplinToken = (() => {
   return token
 })()
 
-// Main startup logic
-async function main(): Promise<void> {
-  let host: string
-  let port: number
-  let sidecar: JoplinSidecar | undefined
-
+async function setupConnection(): Promise<{ host: string; port: number; sidecar: JoplinSidecar | undefined }> {
   if (externalMode) {
     // External mode — connect to existing Joplin instance (e.g. Windows desktop from WSL)
-    host = externalHost || "127.0.0.1"
-    port = externalPort || DEFAULT_API_PORT
+    const host = externalHost ?? "127.0.0.1"
+    const port = externalPort ?? DEFAULT_API_PORT
     process.stderr.write(`External mode: connecting to Joplin at ${host}:${port}\n`)
-  } else {
-    // Sidecar mode — spawn and manage Joplin Terminal
-    sidecar = new JoplinSidecar({
-      profileDir,
-      apiPort: DEFAULT_API_PORT,
-      apiToken: joplinToken,
-      syncTarget: syncTarget.orUndefined() as SyncTarget | undefined,
-    })
-
-    // Phase 1: Resolve port (fast — a few HTTP probes).
-    // Must complete before getPort() so downstream gets the correct port.
-    const portResult = await sidecar.resolvePort()
-    portResult.fold(
-      (err) => process.stderr.write(`Warning: Port resolution failed: ${err.message}\n`),
-      (p) => process.stderr.write(`Sidecar will use port ${p}\n`),
-    )
-
-    // Phase 2: Fire-and-forget the slow startup (CLI config, spawn, wait).
-    // ensureConnected() in server-core.ts will await or retry on first tool call.
-    sidecar.start().then((result) => {
-      result.fold(
-        (err) => {
-          process.stderr.write(`Warning: Sidecar failed to start: ${err.message}\n`)
-          process.stderr.write("Attempting to connect to existing Joplin instance...\n")
-        },
-        () => {
-          process.stderr.write("Joplin sidecar started successfully\n")
-        },
-      )
-    })
-
-    host = sidecar.getHost()
-    port = sidecar.getPort()
-
-    // Cleanup on exit
-    const cleanup = async () => {
-      await sidecar!.stop()
-      process.exit(0)
-    }
-    process.on("SIGINT", () => void cleanup())
-    process.on("SIGTERM", () => void cleanup())
+    return { host, port, sidecar: undefined }
   }
+
+  // Sidecar mode — spawn and manage Joplin Terminal
+  const sidecar = new JoplinSidecar({
+    profileDir,
+    apiPort: DEFAULT_API_PORT,
+    apiToken: joplinToken,
+    syncTarget: syncTarget.orUndefined() as SyncTarget | undefined,
+  })
+
+  // Phase 1: Resolve port (fast — a few HTTP probes).
+  // Must complete before getPort() so downstream gets the correct port.
+  const portResult = await sidecar.resolvePort()
+  portResult.fold(
+    (err) => process.stderr.write(`Warning: Port resolution failed: ${err.message}\n`),
+    (p) => process.stderr.write(`Sidecar will use port ${p}\n`),
+  )
+
+  // Phase 2: Fire-and-forget the slow startup (CLI config, spawn, wait).
+  // ensureConnected() in server-core.ts will await or retry on first tool call.
+  void sidecar.start().then((result) => {
+    result.fold(
+      (err) => {
+        process.stderr.write(`Warning: Sidecar failed to start: ${err.message}\n`)
+        process.stderr.write("Attempting to connect to existing Joplin instance...\n")
+      },
+      () => {
+        process.stderr.write("Joplin sidecar started successfully\n")
+      },
+    )
+  })
+
+  // Cleanup on exit
+  const cleanup = async () => {
+    await sidecar.stop()
+    process.exit(0)
+  }
+  process.on("SIGINT", () => void cleanup())
+  process.on("SIGTERM", () => void cleanup())
+
+  return { host: sidecar.getHost(), port: sidecar.getPort(), sidecar }
+}
+
+// Main startup logic
+async function main(): Promise<void> {
+  const { host, port, sidecar } = await setupConnection()
 
   if (isHttpMode) {
     process.stderr.write("Starting HTTP transport mode with FastMCP...\n")
@@ -300,7 +300,7 @@ async function startStdioServer(host: string, port: number, token: string, sidec
   // Register tool call handler
   server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest) => {
     const toolName = request.params.name
-    const args = request.params.arguments || {}
+    const args = request.params.arguments ?? {}
 
     try {
       switch (toolName) {
@@ -447,10 +447,12 @@ async function startStdioServer(host: string, port: number, token: string, sidec
         message,
       }
 
-      fs.appendFileSync(logFile, JSON.stringify(logEntry) + "\n")
+      fs.appendFileSync(logFile, `${JSON.stringify(logEntry)}\n`)
 
-      const parent = Object.getPrototypeOf(Object.getPrototypeOf(this))
-      return parent.sendMessage.call(this, message)
+      const parent = Object.getPrototypeOf(Object.getPrototypeOf(this)) as {
+        sendMessage: (m: unknown) => Promise<void>
+      }
+      await parent.sendMessage.call(this, message)
     }
 
     async handleMessage(message: unknown): Promise<void> {
@@ -462,10 +464,12 @@ async function startStdioServer(host: string, port: number, token: string, sidec
         message,
       }
 
-      fs.appendFileSync(logFile, JSON.stringify(logEntry) + "\n")
+      fs.appendFileSync(logFile, `${JSON.stringify(logEntry)}\n`)
 
-      const parent = Object.getPrototypeOf(Object.getPrototypeOf(this))
-      return parent.handleMessage.call(this, message)
+      const parent = Object.getPrototypeOf(Object.getPrototypeOf(this)) as {
+        handleMessage: (m: unknown) => Promise<void>
+      }
+      await parent.handleMessage.call(this, message)
     }
   }
 

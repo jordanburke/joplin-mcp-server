@@ -4,7 +4,8 @@ import { dirname, join } from "path"
 import { fileURLToPath } from "url"
 import { z } from "zod"
 
-import { initializeJoplinManager, JoplinServerManager } from "./server-core.js"
+import type { JoplinServerManager } from "./server-core.js"
+import { initializeJoplinManager } from "./server-core.js"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -210,8 +211,8 @@ export async function startFastMCPServer(options: FastMCPServerOptions): Promise
 
   process.stderr.write(`Configured for Joplin at ${options.host}:${options.port}\n`)
 
-  const port = options.httpPort || 3000
-  const endpoint = options.endpoint || "/mcp"
+  const port = options.httpPort ?? 3000
+  const endpoint = options.endpoint ?? "/mcp"
 
   await server.start({
     transportType: "httpStream",

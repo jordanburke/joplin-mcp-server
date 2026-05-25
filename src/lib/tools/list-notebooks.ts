@@ -1,4 +1,5 @@
-import BaseTool, { JoplinFolder } from "./base-tool.js"
+import type { JoplinFolder } from "./base-tool.js"
+import BaseTool from "./base-tool.js"
 
 class ListNotebooks extends BaseTool {
   async call(): Promise<string> {
@@ -12,7 +13,7 @@ class ListNotebooks extends BaseTool {
       const notebooksByParentId: Record<string, JoplinFolder[]> = {}
 
       notebooks.forEach((notebook) => {
-        const parentId = notebook.parent_id || ""
+        const parentId = notebook.parent_id ?? ""
         if (!notebooksByParentId[parentId]) {
           notebooksByParentId[parentId] = []
         }
@@ -28,7 +29,7 @@ class ListNotebooks extends BaseTool {
 
       // Add the notebook hierarchy
       resultLines.push(
-        ...this.notebooksLines(notebooksByParentId[""] || [], {
+        ...this.notebooksLines(notebooksByParentId[""] ?? [], {
           indent: 0,
           notebooksByParentId,
         }),
@@ -54,7 +55,7 @@ class ListNotebooks extends BaseTool {
     const indentSpaces = " ".repeat(indent)
 
     this.sortNotebooks(notebooks).forEach((notebook) => {
-      const id = notebook.id
+      const { id } = notebook
       result.push(`${indentSpaces}Notebook: "${notebook.title}" (notebook_id: "${id}")\n`)
 
       const childNotebooks = notebooksByParentId[id]

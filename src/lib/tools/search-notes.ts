@@ -1,4 +1,5 @@
-import BaseTool, { JoplinFolder, JoplinNote } from "./base-tool.js"
+import type { JoplinFolder, JoplinNote } from "./base-tool.js"
+import BaseTool from "./base-tool.js"
 
 interface SearchResult {
   items: JoplinNote[]
@@ -59,8 +60,8 @@ class SearchNotes extends BaseTool {
       }
 
       searchResults.items.forEach((note) => {
-        const notebookTitle = folderMap[note.parent_id || ""] || "Unknown notebook"
-        const notebookId = note.parent_id || "unknown"
+        const notebookTitle = folderMap[note.parent_id ?? ""] ?? "Unknown notebook"
+        const notebookId = note.parent_id ?? "unknown"
         const updatedDate = this.formatDate(note.updated_time)
 
         resultLines.push(`- Note: "${note.title}" (note_id: "${note.id}")`)

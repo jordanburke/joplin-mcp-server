@@ -1,6 +1,6 @@
 import { type Either } from "functype"
 
-import JoplinAPIClient from "../joplin-api-client.js"
+import type JoplinAPIClient from "../joplin-api-client.js"
 
 type JoplinFolder = {
   id: string
@@ -27,11 +27,12 @@ abstract class BaseTool {
     this.apiClient = apiClient
   }
 
-  abstract call(...args: any[]): Promise<string>
+  abstract call(...args: unknown[]): Promise<string>
 
-  protected formatError(error: any, context: string): string {
+  protected formatError(error: unknown, context: string): string {
     process.stderr.write(`${context} error: ${error}\n`)
-    return `Error ${context.toLowerCase()}: ${error.message || "Unknown error"}`
+    const message = error instanceof Error ? error.message : "Unknown error"
+    return `Error ${context.toLowerCase()}: ${message}`
   }
 
   protected validateId(id: string, type: "note" | "notebook"): string | null {

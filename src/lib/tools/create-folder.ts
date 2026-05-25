@@ -1,4 +1,5 @@
-import BaseTool, { JoplinFolder } from "./base-tool.js"
+import type { JoplinFolder } from "./base-tool.js"
+import BaseTool from "./base-tool.js"
 
 interface CreateFolderOptions {
   title: string
@@ -45,22 +46,22 @@ class CreateFolder extends BaseTool {
       }
 
       // Get parent notebook info if available
-      let parentInfo = "Top level"
-      if (createdFolder.parent_id) {
+      const parentInfo = await (async (): Promise<string> => {
+        if (!createdFolder.parent_id) return "Top level"
         try {
           const parentNotebook = this.unwrap(
             await this.apiClient.get<JoplinFolder>(`/folders/${createdFolder.parent_id}`, {
               query: { fields: "id,title" },
             }),
           )
-          if (parentNotebook && parentNotebook.title) {
-            parentInfo = `Inside "${parentNotebook.title}" (notebook_id: "${createdFolder.parent_id}")`
+          if (parentNotebook?.title) {
+            return `Inside "${parentNotebook.title}" (notebook_id: "${createdFolder.parent_id}")`
           }
+          return `Parent notebook ID: ${createdFolder.parent_id}`
         } catch {
-          // Continue even if we can't get parent info
-          parentInfo = `Parent notebook ID: ${createdFolder.parent_id}`
+          return `Parent notebook ID: ${createdFolder.parent_id}`
         }
-      }
+      })()
 
       // Format success response
       const resultLines: string[] = []
@@ -81,16 +82,17 @@ class CreateFolder extends BaseTool {
       resultLines.push(`   - View all notebooks: list_notebooks`)
 
       return resultLines.join("\n")
-    } catch (error: any) {
-      if (error.response) {
+    } catch (error: unknown) {
+      const err = error as { response?: { status?: number; data?: { error?: string } } }
+      if (err.response) {
         // Handle specific API errors
-        if (error.response.status === 400) {
-          return `Error creating notebook: Invalid request data.\n\nPlease check your input parameters. ${error.response.data?.error || ""}`
+        if (err.response.status === 400) {
+          return `Error creating notebook: Invalid request data.\n\nPlease check your input parameters. ${err.response.data?.error ?? ""}`
         }
-        if (error.response.status === 404 && options.parent_id) {
+        if (err.response.status === 404 && options.parent_id !== undefined) {
           return `Error: Parent notebook with ID "${options.parent_id}" not found.\n\nUse list_notebooks to see available notebooks and their IDs, or omit parent_id to create a top-level notebook.`
         }
-        if (error.response.status === 409) {
+        if (err.response.status === 409) {
           return `Error: A notebook with the title "${options.title}" might already exist in this location.\n\nTry a different title or check existing notebooks with list_notebooks.`
         }
       }

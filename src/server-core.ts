@@ -198,9 +198,8 @@ export class JoplinServerManager {
         // This is normal for Joplin Terminal CLI — it auto-syncs on its configured interval
         if (msg.includes("404") || msg.includes("No action API") || msg.includes("No such service")) {
           return (
-            "Sync is managed automatically by the Joplin server on its configured interval " +
-            "(default: every 5 minutes). On-demand sync is not available via the Joplin Terminal API." +
-            desktopWarning
+            `Sync is managed automatically by the Joplin server on its configured interval ` +
+            `(default: every 5 minutes). On-demand sync is not available via the Joplin Terminal API.${desktopWarning}`
           )
         }
         return `Sync failed: ${msg}${desktopWarning}`

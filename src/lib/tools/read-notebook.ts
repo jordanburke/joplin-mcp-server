@@ -1,4 +1,5 @@
-import BaseTool, { JoplinFolder, JoplinNote } from "./base-tool.js"
+import type { JoplinFolder, JoplinNote } from "./base-tool.js"
+import BaseTool from "./base-tool.js"
 
 interface NotebookNotesResponse {
   items: JoplinNote[]
@@ -73,14 +74,15 @@ class ReadNotebook extends BaseTool {
       })
 
       return resultLines.join("\n")
-    } catch (error: any) {
-      if (error.response && error.response.status === 404) {
+    } catch (error: unknown) {
+      const err = error as { response?: { status?: number } }
+      if (err.response?.status === 404) {
         return `Notebook with ID "${notebookId}" not found.\n\nThis might happen if:\n1. The ID is incorrect\n2. You're using a note title instead of a notebook ID\n3. The notebook has been deleted\n\nUse list_notebooks to see all available notebooks with their IDs.`
       }
-      return (
-        this.formatError(error, "reading notebook") +
-        `\n\nMake sure you're using a valid notebook ID, not a note title.\nUse list_notebooks to see all available notebooks with their IDs.`
-      )
+      return `${this.formatError(
+        error,
+        "reading notebook",
+      )}\n\nMake sure you're using a valid notebook ID, not a note title.\nUse list_notebooks to see all available notebooks with their IDs.`
     }
   }
 }

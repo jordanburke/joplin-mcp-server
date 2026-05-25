@@ -1,4 +1,5 @@
-import BaseTool, { JoplinFolder, JoplinNote } from "./base-tool.js"
+import type { JoplinFolder, JoplinNote } from "./base-tool.js"
+import BaseTool from "./base-tool.js"
 
 interface DeleteNoteOptions {
   note_id: string
@@ -34,13 +35,13 @@ class DeleteNote extends BaseTool {
         }),
       )
 
-      if (!noteToDelete || !noteToDelete.id) {
+      if (!noteToDelete?.id) {
         return `Note with ID "${options.note_id}" not found.\n\nUse search_notes to find notes and their IDs.`
       }
 
       // Get notebook info if available
-      let notebookInfo = "Root level"
-      if (noteToDelete.parent_id) {
+      const notebookInfo = await (async (): Promise<string> => {
+        if (!noteToDelete.parent_id) return "Root level"
         try {
           const notebook = this.unwrap(
             await this.apiClient.get<JoplinFolder>(`/folders/${noteToDelete.parent_id}`, {
@@ -48,12 +49,13 @@ class DeleteNote extends BaseTool {
             }),
           )
           if (notebook?.title) {
-            notebookInfo = `"${notebook.title}" (notebook_id: "${noteToDelete.parent_id}")`
+            return `"${notebook.title}" (notebook_id: "${noteToDelete.parent_id}")`
           }
+          return `Notebook ID: ${noteToDelete.parent_id}`
         } catch {
-          notebookInfo = `Notebook ID: ${noteToDelete.parent_id}`
+          return `Notebook ID: ${noteToDelete.parent_id}`
         }
-      }
+      })()
 
       // Delete the note
       this.unwrap(await this.apiClient.delete(`/notes/${options.note_id}`))
@@ -97,12 +99,13 @@ class DeleteNote extends BaseTool {
       }
 
       return resultLines.join("\n")
-    } catch (error: any) {
-      if (error.response) {
-        if (error.response.status === 404) {
+    } catch (error: unknown) {
+      const err = error as { response?: { status?: number } }
+      if (err.response) {
+        if (err.response.status === 404) {
           return `Note with ID "${options.note_id}" not found.\n\nUse search_notes to find notes and their IDs.`
         }
-        if (error.response.status === 403) {
+        if (err.response.status === 403) {
           return `Permission denied: Cannot delete note with ID "${options.note_id}".\n\nThis might be a protected system note.`
         }
       }

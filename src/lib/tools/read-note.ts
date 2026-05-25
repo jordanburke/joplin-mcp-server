@@ -1,4 +1,5 @@
-import BaseTool, { JoplinFolder, JoplinNote } from "./base-tool.js"
+import type { JoplinFolder, JoplinNote } from "./base-tool.js"
+import BaseTool from "./base-tool.js"
 
 class ReadNote extends BaseTool {
   async call(noteId: string): Promise<string> {
@@ -23,22 +24,23 @@ class ReadNote extends BaseTool {
       }
 
       // Get the notebook info to show where this note is located
-      let notebookInfo = "Unknown notebook"
-      if (note.parent_id) {
+      const notebookInfo = await (async (): Promise<string> => {
+        if (!note.parent_id) return "Unknown notebook"
         try {
           const notebook = this.unwrap(
             await this.apiClient.get<JoplinFolder>(`/folders/${note.parent_id}`, {
               query: { fields: "id,title" },
             }),
           )
-          if (notebook && notebook.title) {
-            notebookInfo = `"${notebook.title}" (notebook_id: "${note.parent_id}")`
+          if (notebook?.title) {
+            return `"${notebook.title}" (notebook_id: "${note.parent_id}")`
           }
+          return "Unknown notebook"
         } catch (err: unknown) {
           process.stderr.write(`Error fetching notebook info: ${err}\n`)
-          // Continue even if we can't get the notebook info
+          return "Unknown notebook"
         }
-      }
+      })()
 
       // Format the note content
       const resultLines: string[] = []
@@ -82,14 +84,15 @@ class ReadNote extends BaseTool {
       resultLines.push('- To search for more notes: search_notes query="your search term"')
 
       return resultLines.join("\n")
-    } catch (error: any) {
-      if (error.response && error.response.status === 404) {
+    } catch (error: unknown) {
+      const err = error as { response?: { status?: number } }
+      if (err.response?.status === 404) {
         return `Note with ID "${noteId}" not found.\n\nThis might happen if:\n1. The ID is incorrect\n2. You're using a notebook ID instead of a note ID\n3. The note has been deleted\n\nUse search_notes to find notes and their IDs.`
       }
-      return (
-        this.formatError(error, "reading note") +
-        `\n\nMake sure you're using a valid note ID.\nUse search_notes to find notes and their IDs.`
-      )
+      return `${this.formatError(
+        error,
+        "reading note",
+      )}\n\nMake sure you're using a valid note ID.\nUse search_notes to find notes and their IDs.`
     }
   }
 }

@@ -1,4 +1,5 @@
-import BaseTool, { JoplinFolder } from "./base-tool.js"
+import type { JoplinFolder } from "./base-tool.js"
+import BaseTool from "./base-tool.js"
 
 interface EditFolderOptions {
   folder_id: string
@@ -59,7 +60,7 @@ class EditFolder extends BaseTool {
         }),
       )
 
-      if (!currentFolder || !currentFolder.id) {
+      if (!currentFolder?.id) {
         return `Folder with ID "${options.folder_id}" not found.\n\nUse list_notebooks to see available folders and their IDs.`
       }
 
@@ -80,40 +81,28 @@ class EditFolder extends BaseTool {
       }
 
       // Get parent folder info for both old and new locations if parent_id changed
-      let oldParentInfo = "Top level"
-      let newParentInfo = "Top level"
-
-      if (currentFolder.parent_id) {
+      const fetchParentInfo = async (parentId: string): Promise<string> => {
         try {
-          const oldParent = this.unwrap(
-            await this.apiClient.get<JoplinFolder>(`/folders/${currentFolder.parent_id}`, {
+          const parent = this.unwrap(
+            await this.apiClient.get<JoplinFolder>(`/folders/${parentId}`, {
               query: { fields: "title" },
             }),
           )
-          if (oldParent?.title) {
-            oldParentInfo = `Inside "${oldParent.title}"`
+          if (parent?.title) {
+            return `Inside "${parent.title}"`
           }
+          return `Parent ID: ${parentId}`
         } catch {
-          oldParentInfo = `Parent ID: ${currentFolder.parent_id}`
+          return `Parent ID: ${parentId}`
         }
       }
 
-      if (updatedFolder.parent_id && updatedFolder.parent_id !== currentFolder.parent_id) {
-        try {
-          const newParent = this.unwrap(
-            await this.apiClient.get<JoplinFolder>(`/folders/${updatedFolder.parent_id}`, {
-              query: { fields: "title" },
-            }),
-          )
-          if (newParent?.title) {
-            newParentInfo = `Inside "${newParent.title}"`
-          }
-        } catch {
-          newParentInfo = `Parent ID: ${updatedFolder.parent_id}`
-        }
-      } else if (updatedFolder.parent_id) {
-        newParentInfo = oldParentInfo
-      }
+      const oldParentInfo = currentFolder.parent_id ? await fetchParentInfo(currentFolder.parent_id) : "Top level"
+      const newParentInfo = await (async (): Promise<string> => {
+        if (!updatedFolder.parent_id) return "Top level"
+        if (updatedFolder.parent_id === currentFolder.parent_id) return oldParentInfo
+        return fetchParentInfo(updatedFolder.parent_id)
+      })()
 
       // Format success response with before/after comparison
       const resultLines: string[] = []
@@ -148,21 +137,25 @@ class EditFolder extends BaseTool {
       }
 
       return resultLines.join("\n")
-    } catch (error: any) {
-      if (error.response) {
-        if (error.response.status === 404) {
-          if (error.config?.url?.includes(`/folders/${options.folder_id}`)) {
+    } catch (error: unknown) {
+      const err = error as {
+        response?: { status?: number; data?: { error?: string } }
+        config?: { url?: string }
+      }
+      if (err.response) {
+        if (err.response.status === 404) {
+          if (err.config?.url?.includes(`/folders/${options.folder_id}`) === true) {
             return `Folder with ID "${options.folder_id}" not found.\n\nUse list_notebooks to see available folders and their IDs.`
           }
-          if (options.parent_id) {
+          if (options.parent_id !== undefined) {
             return `Error: Parent folder with ID "${options.parent_id}" not found.\n\nUse list_notebooks to see available folders and their IDs.`
           }
         }
-        if (error.response.status === 400) {
-          return `Error updating folder: Invalid request data.\n\nPlease check your input parameters. ${error.response.data?.error || ""}`
+        if (err.response.status === 400) {
+          return `Error updating folder: Invalid request data.\n\nPlease check your input parameters. ${err.response.data?.error ?? ""}`
         }
-        if (error.response.status === 409) {
-          return `Error: A folder with the title "${options.title}" might already exist in this location.\n\nTry a different title or check existing folders with list_notebooks.`
+        if (err.response.status === 409) {
+          return `Error: A folder with the title "${options.title ?? ""}" might already exist in this location.\n\nTry a different title or check existing folders with list_notebooks.`
         }
       }
       return this.formatError(error, "updating folder")

@@ -1,4 +1,5 @@
-import BaseTool, { JoplinFolder, JoplinNote } from "./base-tool.js"
+import type { JoplinFolder, JoplinNote } from "./base-tool.js"
+import BaseTool from "./base-tool.js"
 
 interface CreateNoteOptions {
   title?: string | undefined
@@ -47,22 +48,22 @@ class CreateNote extends BaseTool {
       }
 
       // Get notebook info if available
-      let notebookInfo = "Root level"
-      if (createdNote.parent_id) {
+      const notebookInfo = await (async (): Promise<string> => {
+        if (!createdNote.parent_id) return "Root level"
         try {
           const notebook = this.unwrap(
             await this.apiClient.get<JoplinFolder>(`/folders/${createdNote.parent_id}`, {
               query: { fields: "id,title" },
             }),
           )
-          if (notebook && notebook.title) {
-            notebookInfo = `"${notebook.title}" (notebook_id: "${createdNote.parent_id}")`
+          if (notebook?.title) {
+            return `"${notebook.title}" (notebook_id: "${createdNote.parent_id}")`
           }
+          return `Notebook ID: ${createdNote.parent_id}`
         } catch {
-          // Continue even if we can't get notebook info
-          notebookInfo = `Notebook ID: ${createdNote.parent_id}`
+          return `Notebook ID: ${createdNote.parent_id}`
         }
-      }
+      })()
 
       // Format success response
       const resultLines: string[] = []
@@ -89,13 +90,14 @@ class CreateNote extends BaseTool {
       resultLines.push(`   - Search for it: search_notes query="${createdNote.title}"`)
 
       return resultLines.join("\n")
-    } catch (error: any) {
-      if (error.response) {
+    } catch (error: unknown) {
+      const err = error as { response?: { status?: number; data?: { error?: string } } }
+      if (err.response) {
         // Handle specific API errors
-        if (error.response.status === 400) {
-          return `Error creating note: Invalid request data.\n\nPlease check your input parameters. ${error.response.data?.error || ""}`
+        if (err.response.status === 400) {
+          return `Error creating note: Invalid request data.\n\nPlease check your input parameters. ${err.response.data?.error ?? ""}`
         }
-        if (error.response.status === 404 && options.parent_id) {
+        if (err.response.status === 404 && options.parent_id !== undefined) {
           return `Error: Notebook with ID "${options.parent_id}" not found.\n\nUse list_notebooks to see available notebooks and their IDs.`
         }
       }

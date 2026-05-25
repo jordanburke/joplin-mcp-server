@@ -4,9 +4,7 @@
 declare const __VERSION__: string
 
 // Force stdio mode for CLI/npx usage (unless explicitly overridden)
-if (!process.env.TRANSPORT_TYPE) {
-  process.env.TRANSPORT_TYPE = "stdio"
-}
+process.env.TRANSPORT_TYPE ??= "stdio"
 
 // Handle command line arguments BEFORE any other imports
 const args = process.argv.slice(2)
@@ -43,4 +41,4 @@ async function main() {
   await import("./index.js")
 }
 
-main().then()
+void main()

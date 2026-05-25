@@ -1,4 +1,5 @@
-import BaseTool, { JoplinFolder, JoplinNote } from "./base-tool.js"
+import type { JoplinFolder, JoplinNote } from "./base-tool.js"
+import BaseTool from "./base-tool.js"
 
 interface EditNoteOptions {
   note_id: string
@@ -52,7 +53,7 @@ class EditNote extends BaseTool {
         }),
       )
 
-      if (!currentNote || !currentNote.id) {
+      if (!currentNote?.id) {
         return `Note with ID "${options.note_id}" not found.\n\nUse search_notes to find notes and their IDs.`
       }
 
@@ -78,40 +79,28 @@ class EditNote extends BaseTool {
       }
 
       // Get notebook info for both old and new locations if parent_id changed
-      let oldNotebookInfo = "Root level"
-      let newNotebookInfo = "Root level"
-
-      if (currentNote.parent_id) {
+      const fetchNotebookInfo = async (parentId: string): Promise<string> => {
         try {
-          const oldNotebook = this.unwrap(
-            await this.apiClient.get<JoplinFolder>(`/folders/${currentNote.parent_id}`, {
+          const notebook = this.unwrap(
+            await this.apiClient.get<JoplinFolder>(`/folders/${parentId}`, {
               query: { fields: "title" },
             }),
           )
-          if (oldNotebook?.title) {
-            oldNotebookInfo = `"${oldNotebook.title}"`
+          if (notebook?.title) {
+            return `"${notebook.title}"`
           }
+          return `Notebook ID: ${parentId}`
         } catch {
-          oldNotebookInfo = `Notebook ID: ${currentNote.parent_id}`
+          return `Notebook ID: ${parentId}`
         }
       }
 
-      if (updatedNote.parent_id && updatedNote.parent_id !== currentNote.parent_id) {
-        try {
-          const newNotebook = this.unwrap(
-            await this.apiClient.get<JoplinFolder>(`/folders/${updatedNote.parent_id}`, {
-              query: { fields: "title" },
-            }),
-          )
-          if (newNotebook?.title) {
-            newNotebookInfo = `"${newNotebook.title}"`
-          }
-        } catch {
-          newNotebookInfo = `Notebook ID: ${updatedNote.parent_id}`
-        }
-      } else if (updatedNote.parent_id) {
-        newNotebookInfo = oldNotebookInfo
-      }
+      const oldNotebookInfo = currentNote.parent_id ? await fetchNotebookInfo(currentNote.parent_id) : "Root level"
+      const newNotebookInfo = await (async (): Promise<string> => {
+        if (!updatedNote.parent_id) return "Root level"
+        if (updatedNote.parent_id === currentNote.parent_id) return oldNotebookInfo
+        return fetchNotebookInfo(updatedNote.parent_id)
+      })()
 
       // Format success response with before/after comparison
       const resultLines: string[] = []
@@ -171,15 +160,16 @@ class EditNote extends BaseTool {
       }
 
       return resultLines.join("\n")
-    } catch (error: any) {
-      if (error.response) {
-        if (error.response.status === 404) {
+    } catch (error: unknown) {
+      const err = error as { response?: { status?: number; data?: { error?: string } } }
+      if (err.response) {
+        if (err.response.status === 404) {
           return `Note with ID "${options.note_id}" not found.\n\nUse search_notes to find notes and their IDs.`
         }
-        if (error.response.status === 400) {
-          return `Error updating note: Invalid request data.\n\nPlease check your input parameters. ${error.response.data?.error || ""}`
+        if (err.response.status === 400) {
+          return `Error updating note: Invalid request data.\n\nPlease check your input parameters. ${err.response.data?.error ?? ""}`
         }
-        if (error.response.status === 404 && options.parent_id) {
+        if (err.response.status === 404 && options.parent_id !== undefined) {
           return `Error: Notebook with ID "${options.parent_id}" not found.\n\nUse list_notebooks to see available notebooks and their IDs.`
         }
       }

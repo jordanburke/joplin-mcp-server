@@ -174,8 +174,6 @@ export const buildSyncTarget = (args: {
 
 function parseArgs(): ParsedArgs {
   const args = process.argv.slice(2)
-  let transport: "stdio" | "http" = "stdio"
-  let httpPort = 3000
 
   // Load environment variables without dotenv debug output (for MCP stdio compatibility)
   const loadEnvFile = (envPath: string) => {
@@ -225,29 +223,27 @@ function parseArgs(): ParsedArgs {
   )
 
   // Handle --transport
-  extractArg(args, "--transport").fold(
-    () => {},
-    (value) => {
+  const transport: "stdio" | "http" = extractArg(args, "--transport")
+    .map((value): "stdio" | "http" => {
       if (value !== "stdio" && value !== "http") {
         process.stderr.write("Error: --transport must be either 'stdio' or 'http'\n")
         process.exit(1)
       }
-      transport = value as "stdio" | "http"
-    },
-  )
+      return value
+    })
+    .orElse("stdio")
 
   // Handle --http-port
-  extractArg(args, "--http-port").fold(
-    () => {},
-    (value) => {
+  const httpPort: number = extractArg(args, "--http-port")
+    .map((value) => {
       const parsed = parseInt(value, 10)
       if (isNaN(parsed) || parsed < 1 || parsed > 65535) {
         process.stderr.write("Error: --http-port must be a valid port number (1-65535)\n")
         process.exit(1)
       }
-      httpPort = parsed
-    },
-  )
+      return parsed
+    })
+    .orElse(3000)
 
   // Handle --profile
   const profileDir = extractArg(args, "--profile")

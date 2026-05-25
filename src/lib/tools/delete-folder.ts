@@ -1,4 +1,5 @@
-import BaseTool, { JoplinFolder } from "./base-tool.js"
+import type { JoplinFolder } from "./base-tool.js"
+import BaseTool from "./base-tool.js"
 
 interface DeleteFolderOptions {
   folder_id: string
@@ -6,8 +7,10 @@ interface DeleteFolderOptions {
   force?: boolean | undefined
 }
 
+type FolderItem = { id: string; title?: string; parent_id?: string }
+
 interface FolderContents {
-  items: any[]
+  items: FolderItem[]
 }
 
 class DeleteFolder extends BaseTool {
@@ -39,7 +42,7 @@ class DeleteFolder extends BaseTool {
         }),
       )
 
-      if (!folderToDelete || !folderToDelete.id) {
+      if (!folderToDelete?.id) {
         return `Folder with ID "${options.folder_id}" not found.\n\nUse list_notebooks to see available folders and their IDs.`
       }
 
@@ -60,17 +63,17 @@ class DeleteFolder extends BaseTool {
             query: { fields: "id,title,parent_id" },
           })
           .then((result) =>
-            result.fold(
+            result.fold<FolderContents>(
               () => ({ items: [] }),
               (response) => ({
-                items: response.items?.filter((folder: any) => folder.parent_id === options.folder_id) || [],
+                items: response.items.filter((folder) => folder.parent_id === options.folder_id),
               }),
             ),
           ),
       ])
 
-      const noteCount = notes.items?.length || 0
-      const subfolderCount = subfolders.items?.length || 0
+      const noteCount = notes.items.length
+      const subfolderCount = subfolders.items.length
       const totalContent = noteCount + subfolderCount
 
       // Warn if folder is not empty and force is not specified
@@ -84,8 +87,8 @@ class DeleteFolder extends BaseTool {
         if (noteCount > 0) {
           resultLines.push("")
           resultLines.push(`📝 Contains ${noteCount} notes:`)
-          notes.items.slice(0, 5).forEach((note: any) => {
-            resultLines.push(`   - ${note.title || "Untitled"}`)
+          notes.items.slice(0, 5).forEach((note) => {
+            resultLines.push(`   - ${note.title ?? "Untitled"}`)
           })
           if (noteCount > 5) {
             resultLines.push(`   ... and ${noteCount - 5} more notes`)
@@ -95,8 +98,8 @@ class DeleteFolder extends BaseTool {
         if (subfolderCount > 0) {
           resultLines.push("")
           resultLines.push(`📁 Contains ${subfolderCount} subfolders:`)
-          subfolders.items.slice(0, 5).forEach((folder: any) => {
-            resultLines.push(`   - ${folder.title}`)
+          subfolders.items.slice(0, 5).forEach((folder) => {
+            resultLines.push(`   - ${folder.title ?? "Untitled"}`)
           })
           if (subfolderCount > 5) {
             resultLines.push(`   ... and ${subfolderCount - 5} more folders`)
@@ -115,8 +118,8 @@ class DeleteFolder extends BaseTool {
       }
 
       // Get parent folder info if available
-      let parentInfo = "Top level"
-      if (folderToDelete.parent_id) {
+      const parentInfo = await (async (): Promise<string> => {
+        if (!folderToDelete.parent_id) return "Top level"
         try {
           const parentFolder = this.unwrap(
             await this.apiClient.get<JoplinFolder>(`/folders/${folderToDelete.parent_id}`, {
@@ -124,12 +127,13 @@ class DeleteFolder extends BaseTool {
             }),
           )
           if (parentFolder?.title) {
-            parentInfo = `Inside "${parentFolder.title}" (notebook_id: "${folderToDelete.parent_id}")`
+            return `Inside "${parentFolder.title}" (notebook_id: "${folderToDelete.parent_id}")`
           }
+          return `Parent ID: ${folderToDelete.parent_id}`
         } catch {
-          parentInfo = `Parent ID: ${folderToDelete.parent_id}`
+          return `Parent ID: ${folderToDelete.parent_id}`
         }
-      }
+      })()
 
       // Delete the folder
       this.unwrap(await this.apiClient.delete(`/folders/${options.folder_id}`))
@@ -160,15 +164,16 @@ class DeleteFolder extends BaseTool {
       }
 
       return resultLines.join("\n")
-    } catch (error: any) {
-      if (error.response) {
-        if (error.response.status === 404) {
+    } catch (error: unknown) {
+      const err = error as { response?: { status?: number } }
+      if (err.response) {
+        if (err.response.status === 404) {
           return `Folder with ID "${options.folder_id}" not found.\n\nUse list_notebooks to see available folders and their IDs.`
         }
-        if (error.response.status === 403) {
+        if (err.response.status === 403) {
           return `Permission denied: Cannot delete folder with ID "${options.folder_id}".\n\nThis might be a protected system folder.`
         }
-        if (error.response.status === 409) {
+        if (err.response.status === 409) {
           return `Cannot delete folder: It may contain items that prevent deletion.\n\nTry moving or deleting the contents first, or use force option.`
         }
       }

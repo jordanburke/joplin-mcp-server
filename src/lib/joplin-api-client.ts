@@ -1,5 +1,6 @@
 import axios, { type AxiosResponse } from "axios"
-import { Either, Left, Right } from "functype"
+import type { Either } from "functype"
+import { Left, Right } from "functype"
 
 type JoplinAPIClientConfig = {
   host?: string
@@ -39,34 +40,23 @@ class JoplinAPIClient {
   }
 
   async getAllItems<T = unknown>(path: string, options: RequestOptions = {}): Promise<Either<Error, T[]>> {
-    let page = 1
-    const items: T[] = []
+    const fetchPage = async (page: number, acc: T[]): Promise<T[]> => {
+      const result = await this.get<JoplinAPIResponse<T>>(path, this.mergeRequestOptions(options, { query: { page } }))
+      const response = result.fold(
+        (err) => {
+          throw err
+        },
+        (data) => data,
+      )
+      if (!Array.isArray(response.items)) {
+        throw new Error(`Unexpected response format from Joplin API for path: ${path}`)
+      }
+      const combined = [...acc, ...response.items]
+      return response.has_more ? fetchPage(page + 1, combined) : combined
+    }
 
     try {
-      while (true) {
-        const result = await this.get<JoplinAPIResponse<T>>(
-          path,
-          this.mergeRequestOptions(options, { query: { page } }),
-        )
-
-        const response = result.fold(
-          (err) => {
-            throw err
-          },
-          (data) => data,
-        )
-
-        if (!response || typeof response !== "object" || !Array.isArray(response.items)) {
-          return Left(new Error(`Unexpected response format from Joplin API for path: ${path}`))
-        }
-
-        items.push(...response.items)
-        page += 1
-
-        if (!response.has_more) break
-      }
-
-      return Right(items)
+      return Right(await fetchPage(1, []))
     } catch (error: unknown) {
       process.stderr.write(`Error in getAllItems for path ${path}: ${error}\n`)
       return Left(error instanceof Error ? error : new Error(String(error)))
@@ -133,8 +123,8 @@ class JoplinAPIClient {
   private mergeRequestOptions(options1: RequestOptions, options2: RequestOptions): RequestOptions {
     return {
       query: {
-        ...(options1.query || {}),
-        ...(options2.query || {}),
+        ...(options1.query ?? {}),
+        ...(options2.query ?? {}),
       },
       ...this.except(options1, "query"),
       ...this.except(options2, "query"),

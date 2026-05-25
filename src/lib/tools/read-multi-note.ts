@@ -1,4 +1,5 @@
-import BaseTool, { JoplinFolder, JoplinNote } from "./base-tool.js"
+import type { JoplinFolder, JoplinNote } from "./base-tool.js"
+import BaseTool from "./base-tool.js"
 
 class ReadMultiNote extends BaseTool {
   async call(noteIds: string[]): Promise<string> {
@@ -21,8 +22,7 @@ class ReadMultiNote extends BaseTool {
     resultLines.push(`# Reading ${noteIds.length} notes\n`)
 
     // Process each note ID
-    for (let i = 0; i < noteIds.length; i++) {
-      const noteId = noteIds[i]
+    for (const [i, noteId] of noteIds.entries()) {
       resultLines.push(`## Note ${i + 1} of ${noteIds.length} (ID: ${noteId})\n`)
 
       try {
@@ -45,22 +45,23 @@ class ReadMultiNote extends BaseTool {
         successful.push(noteId)
 
         // Get the notebook info to show where this note is located
-        let notebookInfo = "Unknown notebook"
-        if (note.parent_id) {
+        const notebookInfo = await (async (): Promise<string> => {
+          if (!note.parent_id) return "Unknown notebook"
           try {
             const notebook = this.unwrap(
               await this.apiClient.get<JoplinFolder>(`/folders/${note.parent_id}`, {
                 query: { fields: "id,title" },
               }),
             )
-            if (notebook && notebook.title) {
-              notebookInfo = `"${notebook.title}" (notebook_id: "${note.parent_id}")`
+            if (notebook?.title) {
+              return `"${notebook.title}" (notebook_id: "${note.parent_id}")`
             }
+            return "Unknown notebook"
           } catch (err: unknown) {
             process.stderr.write(`Error fetching notebook info for note ${noteId}: ${err}\n`)
-            // Continue even if we can't get the notebook info
+            return "Unknown notebook"
           }
-        }
+        })()
 
         // Add note metadata
         resultLines.push(`### Note: "${note.title}"`)
@@ -95,14 +96,15 @@ class ReadMultiNote extends BaseTool {
 
         // Add a separator after the note
         resultLines.push("\n---\n")
-      } catch (error: any) {
+      } catch (error: unknown) {
         process.stderr.write(`Error reading note ${noteId}: ${error}\n`)
-        if (error.response && error.response.status === 404) {
+        const err = error as { response?: { status?: number }; message?: string }
+        if (err.response?.status === 404) {
           notFound.push(noteId)
           resultLines.push(`Note with ID "${noteId}" not found.\n`)
         } else {
           errors.push(noteId)
-          resultLines.push(`Error reading note: ${error.message || "Unknown error"}\n`)
+          resultLines.push(`Error reading note: ${err.message ?? "Unknown error"}\n`)
         }
       }
     }
