@@ -81,6 +81,7 @@
     "dotenv": "^17.4.2",
     "fastmcp": "^4.0.1",
     "functype": "^0.60.7",
+    "functype-os": "^0.60.7",
     "joplin": "^3.6.2",
     "zod": "^4.4.3"
   },

@@ -2,14 +2,14 @@ import { type ChildProcess, exec, execFile, spawn } from "child_process"
 import crypto from "crypto"
 import fs from "fs"
 import { Either, Left, Match, Option, Right } from "functype"
-import os from "os"
+import { Platform } from "functype-os"
 import { join } from "path"
 import { promisify } from "util"
 
 const execAsync = promisify(exec)
 const execFileAsync = promisify(execFile)
 
-const isWindows = process.platform === "win32"
+const isWindows = Platform.isWindows()
 const whichCmd = isWindows ? "where" : "which"
 
 export const DEFAULT_API_PORT = 41184
@@ -365,7 +365,7 @@ export class JoplinSidecar {
 
   constructor(config: Partial<SidecarConfig> & { apiToken: string }) {
     this.config = {
-      profileDir: config.profileDir ?? join(os.homedir(), ".config", "joplin-mcp"),
+      profileDir: config.profileDir ?? join(Platform.homeDir(), ".config", "joplin-mcp"),
       apiPort: config.apiPort ?? DEFAULT_API_PORT,
       apiToken: config.apiToken,
       syncTarget: config.syncTarget,

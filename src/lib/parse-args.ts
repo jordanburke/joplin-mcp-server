@@ -1,6 +1,6 @@
 import fs from "fs"
 import { Either, Left, Option, Right } from "functype"
-import os from "os"
+import { Path, Platform } from "functype-os"
 import { join, resolve } from "path"
 
 import type { SyncTarget } from "./joplin-sidecar.js"
@@ -13,18 +13,13 @@ export type ParsedArgs = {
   syncTarget: Option<SyncTarget>
 }
 
+// Local expandVars preserves the existing "silently substitute empty for missing
+// env vars" behavior — functype-os's Path.expandVars returns Left on unresolved
+// variables, which would break paths like ~/${MAYBE_UNSET}/foo.
 const expandVars = (p: string): string =>
   p
     .replace(/\$\{(\w+)\}/g, (_, name) => process.env[name] ?? "")
     .replace(/\$(\w+)/g, (_, name) => process.env[name] ?? "")
-
-const isWsl = (() => {
-  try {
-    return fs.readFileSync("/proc/version", "utf-8").toLowerCase().includes("microsoft")
-  } catch {
-    return false
-  }
-})()
 
 const isNonEmptyDir = (p: string): boolean => {
   try {
@@ -35,35 +30,30 @@ const isNonEmptyDir = (p: string): boolean => {
   }
 }
 
+// On WSL, a path like ~/OneDrive may resolve to an empty Linux directory while
+// the real data lives under the Windows user profile. Fall back to the WSL
+// user's Windows home (resolved via cmd.exe %USERPROFILE%) when that happens.
 const resolveWslPath = (linuxPath: string, relativeToHome: string): string => {
-  if (!isWsl) return linuxPath
+  if (!Platform.isWSL()) return linuxPath
   if (fs.existsSync(linuxPath) && isNonEmptyDir(linuxPath)) return linuxPath
-  try {
-    const usersDir = "/mnt/c/Users"
-    const users = fs
-      .readdirSync(usersDir)
-      .filter((u) => !["Public", "Default", "Default User", "All Users"].includes(u))
-    for (const user of users) {
-      const winPath = join(usersDir, user, relativeToHome)
-      if (isNonEmptyDir(winPath)) {
-        process.stderr.write(`[wsl] Path ${linuxPath} empty/missing, using Windows path: ${winPath}\n`)
-        return winPath
-      }
-    }
-  } catch {
-    // /mnt/c not accessible — fall through
-  }
-  return linuxPath
+  return Platform.windowsHomeDir()
+    .map((winHome) => join(winHome, relativeToHome))
+    .filter(isNonEmptyDir)
+    .map((winPath) => {
+      process.stderr.write(`[wsl] Path ${linuxPath} empty/missing, using Windows path: ${winPath}\n`)
+      return winPath
+    })
+    .orElse(linuxPath)
 }
 
 const expandPath = (p: string): string => {
   const expanded = expandVars(p)
-  if (expanded.startsWith("~/") || expanded === "~") {
-    const linuxPath = expanded.replace("~", os.homedir())
-    const relativeToHome = expanded.slice(2) // strip ~/
-    return resolveWslPath(linuxPath, relativeToHome)
+  const tildeExpanded = Path.expandTilde(expanded)
+  if (expanded === "~" || expanded.startsWith("~/")) {
+    const relativeToHome = expanded === "~" ? "" : expanded.slice(2)
+    return resolveWslPath(tildeExpanded, relativeToHome)
   }
-  return expanded
+  return tildeExpanded
 }
 
 const extractArg = (args: string[], flag: string): Option<string> => {
@@ -249,7 +239,7 @@ function parseArgs(): ParsedArgs {
   const profileDir = extractArg(args, "--profile")
     .or(Option(process.env.JOPLIN_PROFILE))
     .map(expandPath)
-    .orElse(`${os.homedir()}/.config/joplin-mcp`)
+    .orElse(expandPath("~/.config/joplin-mcp"))
 
   // Handle sync args
   const syncTarget = extractArg(args, "--sync-target").or(Option(process.env.JOPLIN_SYNC_TARGET))
@@ -357,3 +347,4 @@ Find your Joplin token in: Tools > Options > Web Clipper
 }
 
 export default parseArgs
+export { expandPath, expandVars, resolveWslPath }

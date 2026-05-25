@@ -22,6 +22,9 @@ importers:
       functype:
         specifier: ^0.60.7
         version: 0.60.7
+      functype-os:
+        specifier: ^0.60.7
+        version: 0.60.7(functype@0.60.7)
       joplin:
         specifier: ^3.6.2
         version: 3.6.2(encoding@0.1.13)
