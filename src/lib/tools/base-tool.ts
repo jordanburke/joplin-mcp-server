@@ -2,6 +2,32 @@ import { type Either } from "functype"
 
 import type JoplinAPIClient from "../joplin-api-client.js"
 
+/**
+ * Thrown by tools to signal an operation failure that should surface to the
+ * caller (and the LLM agent) as an MCP error response (isError: true), rather
+ * than being silently returned as a "successful" text result.
+ */
+class ToolError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "ToolError"
+  }
+}
+
+/**
+ * Extract a Joplin-style error message from an API response body. Joplin can
+ * return HTTP 200 with `{ error: "..." }` (or `{ error: ..., code: ... }`)
+ * when an operation fails — without this check the tool would treat the
+ * malformed payload as a success.
+ */
+const extractJoplinErrorMessage = (data: unknown): string | undefined => {
+  if (data !== null && typeof data === "object" && "error" in data) {
+    const err = (data as { error: unknown }).error
+    if (typeof err === "string" && err.length > 0) return err
+  }
+  return undefined
+}
+
 type JoplinFolder = {
   id: string
   title: string
@@ -63,4 +89,5 @@ abstract class BaseTool {
 }
 
 export default BaseTool
+export { extractJoplinErrorMessage, ToolError }
 export type { JoplinFolder, JoplinNote }

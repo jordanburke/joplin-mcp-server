@@ -1,5 +1,5 @@
 import type { JoplinFolder, JoplinNote } from "./base-tool.js"
-import BaseTool from "./base-tool.js"
+import BaseTool, { extractJoplinErrorMessage, ToolError } from "./base-tool.js"
 
 class ReadNote extends BaseTool {
   async call(noteId: string): Promise<string> {
@@ -18,9 +18,14 @@ class ReadNote extends BaseTool {
         }),
       )
 
-      // Validate note response
+      const noteLoadError = extractJoplinErrorMessage(note)
+      if (noteLoadError !== undefined) {
+        throw new ToolError(`Failed to read note "${noteId}": ${noteLoadError}`)
+      }
       if (!note || typeof note !== "object" || !note.id) {
-        return `Error: Unexpected response format from Joplin API when fetching note`
+        throw new ToolError(
+          `Failed to read note "${noteId}": Joplin API returned an unexpected response (no note id). Raw response: ${JSON.stringify(note)}`,
+        )
       }
 
       // Get the notebook info to show where this note is located
@@ -85,14 +90,19 @@ class ReadNote extends BaseTool {
 
       return resultLines.join("\n")
     } catch (error: unknown) {
+      if (error instanceof ToolError) throw error
+
       const err = error as { response?: { status?: number } }
+      process.stderr.write(`reading note error: ${error}\n`)
       if (err.response?.status === 404) {
-        return `Note with ID "${noteId}" not found.\n\nThis might happen if:\n1. The ID is incorrect\n2. You're using a notebook ID instead of a note ID\n3. The note has been deleted\n\nUse search_notes to find notes and their IDs.`
+        throw new ToolError(
+          `Note with ID "${noteId}" not found. This might happen if the ID is incorrect, you're using a notebook ID instead of a note ID, or the note has been deleted. Use search_notes to find notes and their IDs.`,
+        )
       }
-      return `${this.formatError(
-        error,
-        "reading note",
-      )}\n\nMake sure you're using a valid note ID.\nUse search_notes to find notes and their IDs.`
+      const message = error instanceof Error ? error.message : "Unknown error"
+      throw new ToolError(
+        `Failed to read note "${noteId}": ${message}. Make sure you're using a valid note ID. Use search_notes to find notes and their IDs.`,
+      )
     }
   }
 }

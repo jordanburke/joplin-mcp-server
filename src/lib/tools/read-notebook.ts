@@ -1,5 +1,5 @@
 import type { JoplinFolder, JoplinNote } from "./base-tool.js"
-import BaseTool from "./base-tool.js"
+import BaseTool, { extractJoplinErrorMessage, ToolError } from "./base-tool.js"
 
 interface NotebookNotesResponse {
   items: JoplinNote[]
@@ -20,9 +20,14 @@ class ReadNotebook extends BaseTool {
         }),
       )
 
-      // Validate notebook response
+      const notebookLoadError = extractJoplinErrorMessage(notebook)
+      if (notebookLoadError !== undefined) {
+        throw new ToolError(`Failed to read notebook "${notebookId}": ${notebookLoadError}`)
+      }
       if (!notebook || typeof notebook !== "object" || !notebook.id) {
-        return `Error: Unexpected response format from Joplin API when fetching notebook`
+        throw new ToolError(
+          `Failed to read notebook "${notebookId}": Joplin API returned an unexpected response (no notebook id). Raw response: ${JSON.stringify(notebook)}`,
+        )
       }
 
       // Get all notes in this notebook
@@ -32,9 +37,14 @@ class ReadNotebook extends BaseTool {
         }),
       )
 
-      // Validate notes response
+      const notesLoadError = extractJoplinErrorMessage(notes)
+      if (notesLoadError !== undefined) {
+        throw new ToolError(`Failed to load notes for notebook "${notebookId}": ${notesLoadError}`)
+      }
       if (!notes || typeof notes !== "object") {
-        return `Error: Unexpected response format from Joplin API when fetching notes`
+        throw new ToolError(
+          `Failed to load notes for notebook "${notebookId}": Joplin API returned an unexpected response. Raw response: ${JSON.stringify(notes)}`,
+        )
       }
 
       if (!notes.items || !Array.isArray(notes.items) || notes.items.length === 0) {
@@ -75,14 +85,19 @@ class ReadNotebook extends BaseTool {
 
       return resultLines.join("\n")
     } catch (error: unknown) {
+      if (error instanceof ToolError) throw error
+
       const err = error as { response?: { status?: number } }
+      process.stderr.write(`reading notebook error: ${error}\n`)
       if (err.response?.status === 404) {
-        return `Notebook with ID "${notebookId}" not found.\n\nThis might happen if:\n1. The ID is incorrect\n2. You're using a note title instead of a notebook ID\n3. The notebook has been deleted\n\nUse list_notebooks to see all available notebooks with their IDs.`
+        throw new ToolError(
+          `Notebook with ID "${notebookId}" not found. This might happen if the ID is incorrect, you're using a note title instead of a notebook ID, or the notebook has been deleted. Use list_notebooks to see all available notebooks with their IDs.`,
+        )
       }
-      return `${this.formatError(
-        error,
-        "reading notebook",
-      )}\n\nMake sure you're using a valid notebook ID, not a note title.\nUse list_notebooks to see all available notebooks with their IDs.`
+      const message = error instanceof Error ? error.message : "Unknown error"
+      throw new ToolError(
+        `Failed to read notebook "${notebookId}": ${message}. Make sure you're using a valid notebook ID, not a note title. Use list_notebooks to see all available notebooks with their IDs.`,
+      )
     }
   }
 }

@@ -1,5 +1,5 @@
 import type { JoplinFolder } from "./base-tool.js"
-import BaseTool from "./base-tool.js"
+import BaseTool, { extractJoplinErrorMessage, ToolError } from "./base-tool.js"
 
 interface EditFolderOptions {
   folder_id: string
@@ -60,8 +60,14 @@ class EditFolder extends BaseTool {
         }),
       )
 
+      const currentFolderError = extractJoplinErrorMessage(currentFolder)
+      if (currentFolderError !== undefined) {
+        throw new ToolError(`Failed to load folder "${options.folder_id}": ${currentFolderError}`)
+      }
       if (!currentFolder?.id) {
-        return `Folder with ID "${options.folder_id}" not found.\n\nUse list_notebooks to see available folders and their IDs.`
+        throw new ToolError(
+          `Folder with ID "${options.folder_id}" not found. Use list_notebooks to see available folders and their IDs.`,
+        )
       }
 
       // Prepare the update body - only include fields that are being updated
@@ -75,9 +81,16 @@ class EditFolder extends BaseTool {
         await this.apiClient.put<EditFolderResponse>(`/folders/${options.folder_id}`, updateBody),
       )
 
-      // Validate response
+      // Joplin can respond with HTTP 200 and `{ error: "..." }` in the body when
+      // an operation fails. Catch that before treating it as success.
+      const joplinError = extractJoplinErrorMessage(updatedFolder)
+      if (joplinError !== undefined) {
+        throw new ToolError(`Failed to update folder: ${joplinError}`)
+      }
       if (!updatedFolder || typeof updatedFolder !== "object" || !updatedFolder.id) {
-        return "Error: Unexpected response format from Joplin API when updating folder"
+        throw new ToolError(
+          `Failed to update folder: Joplin API returned an unexpected response (no folder id). Raw response: ${JSON.stringify(updatedFolder)}`,
+        )
       }
 
       // Get parent folder info for both old and new locations if parent_id changed
@@ -138,27 +151,39 @@ class EditFolder extends BaseTool {
 
       return resultLines.join("\n")
     } catch (error: unknown) {
+      if (error instanceof ToolError) throw error
+
       const err = error as {
         response?: { status?: number; data?: { error?: string } }
         config?: { url?: string }
       }
+      process.stderr.write(`updating folder error: ${error}\n`)
       if (err.response) {
         if (err.response.status === 404) {
           if (err.config?.url?.includes(`/folders/${options.folder_id}`) === true) {
-            return `Folder with ID "${options.folder_id}" not found.\n\nUse list_notebooks to see available folders and their IDs.`
+            throw new ToolError(
+              `Failed to update folder: Folder with ID "${options.folder_id}" not found. Use list_notebooks to see available folders and their IDs.`,
+            )
           }
           if (options.parent_id !== undefined) {
-            return `Error: Parent folder with ID "${options.parent_id}" not found.\n\nUse list_notebooks to see available folders and their IDs.`
+            throw new ToolError(
+              `Failed to update folder: Parent folder with ID "${options.parent_id}" not found. Use list_notebooks to see available folders and their IDs.`,
+            )
           }
         }
         if (err.response.status === 400) {
-          return `Error updating folder: Invalid request data.\n\nPlease check your input parameters. ${err.response.data?.error ?? ""}`
+          throw new ToolError(
+            `Failed to update folder: Invalid request data. ${err.response.data?.error ?? "Please check your input parameters."}`,
+          )
         }
         if (err.response.status === 409) {
-          return `Error: A folder with the title "${options.title ?? ""}" might already exist in this location.\n\nTry a different title or check existing folders with list_notebooks.`
+          throw new ToolError(
+            `Failed to update folder: A folder with the title "${options.title ?? ""}" might already exist in this location. Try a different title or check existing folders with list_notebooks.`,
+          )
         }
       }
-      return this.formatError(error, "updating folder")
+      const message = error instanceof Error ? error.message : "Unknown error"
+      throw new ToolError(`Failed to update folder: ${message}`)
     }
   }
 }

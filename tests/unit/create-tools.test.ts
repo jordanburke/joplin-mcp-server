@@ -135,28 +135,38 @@ describe("Create Tools", () => {
       expect(mockApiClient.post).not.toHaveBeenCalled()
     })
 
-    it("should handle API errors", async () => {
+    it("should throw when API returns an error", async () => {
       mockApiClient.post.mockResolvedValue(Left(new Error("API Error")))
 
-      const result = await createNote.call({
-        title: "Test Note",
-      })
-
-      expect(result).toContain("Error creating note")
+      await expect(
+        createNote.call({
+          title: "Test Note",
+        }),
+      ).rejects.toThrow(/Failed to create note/)
     })
 
-    it("should handle 404 errors for parent notebook", async () => {
+    it("should throw with the parent notebook id when API returns 404", async () => {
       const error = new Error("Not found")
       ;(error as any).response = { status: 404 }
       mockApiClient.post.mockResolvedValue(Left(error))
 
-      const result = await createNote.call({
-        title: "Test Note",
-        parent_id: "a1b2c3d4e5f6789012345678901234567890abcd",
-      })
+      await expect(
+        createNote.call({
+          title: "Test Note",
+          parent_id: "a1b2c3d4e5f6789012345678901234567890abcd",
+        }),
+      ).rejects.toThrow(/Notebook with ID .* not found/)
+    })
 
-      expect(result).toContain("Notebook with ID")
-      expect(result).toContain("not found")
+    it("should throw with Joplin's error message when response body has an error field", async () => {
+      mockApiClient.post.mockResolvedValue(Right({ error: "Folder not found" }))
+
+      await expect(
+        createNote.call({
+          title: "Test Note",
+          parent_id: "a1b2c3d4e5f6789012345678901234567890abcd",
+        }),
+      ).rejects.toThrow(/Failed to create note: Folder not found/)
     })
   })
 
@@ -239,40 +249,49 @@ describe("Create Tools", () => {
       expect(mockApiClient.post).not.toHaveBeenCalled()
     })
 
-    it("should handle API errors", async () => {
+    it("should throw when API returns an error", async () => {
       mockApiClient.post.mockResolvedValue(Left(new Error("API Error")))
 
-      const result = await createFolder.call({
-        title: "Test Folder",
-      })
-
-      expect(result).toContain("Error creating notebook")
+      await expect(
+        createFolder.call({
+          title: "Test Folder",
+        }),
+      ).rejects.toThrow(/Failed to create notebook/)
     })
 
-    it("should handle 404 errors for parent folder", async () => {
+    it("should throw with the parent folder id when API returns 404", async () => {
       const error = new Error("Not found")
       ;(error as any).response = { status: 404 }
       mockApiClient.post.mockResolvedValue(Left(error))
 
-      const result = await createFolder.call({
-        title: "Test Folder",
-        parent_id: "a1b2c3d4e5f6789012345678901234567890abcd",
-      })
-
-      expect(result).toContain("Parent notebook with ID")
-      expect(result).toContain("not found")
+      await expect(
+        createFolder.call({
+          title: "Test Folder",
+          parent_id: "a1b2c3d4e5f6789012345678901234567890abcd",
+        }),
+      ).rejects.toThrow(/Parent notebook with ID .* not found/)
     })
 
-    it("should handle 409 conflict errors", async () => {
+    it("should throw on 409 conflict", async () => {
       const error = new Error("Conflict")
       ;(error as any).response = { status: 409 }
       mockApiClient.post.mockResolvedValue(Left(error))
 
-      const result = await createFolder.call({
-        title: "Existing Folder",
-      })
+      await expect(
+        createFolder.call({
+          title: "Existing Folder",
+        }),
+      ).rejects.toThrow(/notebook with the title "Existing Folder" might already exist/)
+    })
 
-      expect(result).toContain('notebook with the title "Existing Folder" might already exist')
+    it("should throw with Joplin's error message when response body has an error field", async () => {
+      mockApiClient.post.mockResolvedValue(Right({ error: "Invalid parent" }))
+
+      await expect(
+        createFolder.call({
+          title: "Test Folder",
+        }),
+      ).rejects.toThrow(/Failed to create notebook: Invalid parent/)
     })
   })
 })

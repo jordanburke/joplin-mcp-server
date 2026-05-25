@@ -166,16 +166,26 @@ describe("Edit Tools", () => {
       expect(mockApiClient.get).not.toHaveBeenCalled()
     })
 
-    it("should handle note not found", async () => {
+    it("should throw when the note is not found", async () => {
       mockApiClient.get.mockResolvedValue(Right(null))
 
-      const result = await editNote.call({
-        note_id: "a1b2c3d4e5f6789012345678901234567890abcd",
-        title: "New Title",
-      })
+      await expect(
+        editNote.call({
+          note_id: "a1b2c3d4e5f6789012345678901234567890abcd",
+          title: "New Title",
+        }),
+      ).rejects.toThrow(/Note with ID .* not found/)
+    })
 
-      expect(result).toContain("Note with ID")
-      expect(result).toContain("not found")
+    it("should throw with Joplin's error message when load returns an error field", async () => {
+      mockApiClient.get.mockResolvedValue(Right({ error: "Not Found" }))
+
+      await expect(
+        editNote.call({
+          note_id: "a1b2c3d4e5f6789012345678901234567890abcd",
+          title: "New Title",
+        }),
+      ).rejects.toThrow(/Failed to load note .*: Not Found/)
     })
 
     it("should validate parent_id format", async () => {
@@ -286,16 +296,15 @@ describe("Edit Tools", () => {
       expect(mockApiClient.get).not.toHaveBeenCalled()
     })
 
-    it("should handle folder not found", async () => {
+    it("should throw when the folder is not found", async () => {
       mockApiClient.get.mockResolvedValue(Right(null))
 
-      const result = await editFolder.call({
-        folder_id: "a1b2c3d4e5f6789012345678901234567890abcd",
-        title: "New Title",
-      })
-
-      expect(result).toContain("Folder with ID")
-      expect(result).toContain("not found")
+      await expect(
+        editFolder.call({
+          folder_id: "a1b2c3d4e5f6789012345678901234567890abcd",
+          title: "New Title",
+        }),
+      ).rejects.toThrow(/Folder with ID .* not found/)
     })
 
     it("should validate parent_id format", async () => {
@@ -308,18 +317,18 @@ describe("Edit Tools", () => {
       expect(mockApiClient.get).not.toHaveBeenCalled()
     })
 
-    it("should handle 409 conflict errors", async () => {
+    it("should throw on 409 conflict", async () => {
       const error = new Error("Conflict")
       ;(error as any).response = { status: 409 }
       mockApiClient.get.mockResolvedValue(Right(mockCurrentFolder))
       mockApiClient.put.mockResolvedValue(Left(error))
 
-      const result = await editFolder.call({
-        folder_id: "folder-123",
-        title: "Existing Name",
-      })
-
-      expect(result).toContain('folder with the title "Existing Name" might already exist')
+      await expect(
+        editFolder.call({
+          folder_id: "folder-123",
+          title: "Existing Name",
+        }),
+      ).rejects.toThrow(/folder with the title "Existing Name" might already exist/)
     })
   })
 })

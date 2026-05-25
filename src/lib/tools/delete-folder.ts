@@ -1,5 +1,5 @@
 import type { JoplinFolder } from "./base-tool.js"
-import BaseTool from "./base-tool.js"
+import BaseTool, { extractJoplinErrorMessage, ToolError } from "./base-tool.js"
 
 interface DeleteFolderOptions {
   folder_id: string
@@ -42,8 +42,14 @@ class DeleteFolder extends BaseTool {
         }),
       )
 
+      const folderLoadError = extractJoplinErrorMessage(folderToDelete)
+      if (folderLoadError !== undefined) {
+        throw new ToolError(`Failed to load folder "${options.folder_id}": ${folderLoadError}`)
+      }
       if (!folderToDelete?.id) {
-        return `Folder with ID "${options.folder_id}" not found.\n\nUse list_notebooks to see available folders and their IDs.`
+        throw new ToolError(
+          `Folder with ID "${options.folder_id}" not found. Use list_notebooks to see available folders and their IDs.`,
+        )
       }
 
       // Check if folder contains notes or subfolders
@@ -136,7 +142,11 @@ class DeleteFolder extends BaseTool {
       })()
 
       // Delete the folder
-      this.unwrap(await this.apiClient.delete(`/folders/${options.folder_id}`))
+      const deleteResponse = this.unwrap(await this.apiClient.delete(`/folders/${options.folder_id}`))
+      const deleteError = extractJoplinErrorMessage(deleteResponse)
+      if (deleteError !== undefined) {
+        throw new ToolError(`Failed to delete folder: ${deleteError}`)
+      }
 
       // Format success response
       const resultLines: string[] = []
@@ -165,19 +175,29 @@ class DeleteFolder extends BaseTool {
 
       return resultLines.join("\n")
     } catch (error: unknown) {
+      if (error instanceof ToolError) throw error
+
       const err = error as { response?: { status?: number } }
+      process.stderr.write(`deleting folder error: ${error}\n`)
       if (err.response) {
         if (err.response.status === 404) {
-          return `Folder with ID "${options.folder_id}" not found.\n\nUse list_notebooks to see available folders and their IDs.`
+          throw new ToolError(
+            `Failed to delete folder: Folder with ID "${options.folder_id}" not found. Use list_notebooks to see available folders and their IDs.`,
+          )
         }
         if (err.response.status === 403) {
-          return `Permission denied: Cannot delete folder with ID "${options.folder_id}".\n\nThis might be a protected system folder.`
+          throw new ToolError(
+            `Failed to delete folder: Permission denied for folder with ID "${options.folder_id}". This might be a protected system folder.`,
+          )
         }
         if (err.response.status === 409) {
-          return `Cannot delete folder: It may contain items that prevent deletion.\n\nTry moving or deleting the contents first, or use force option.`
+          throw new ToolError(
+            `Failed to delete folder: It may contain items that prevent deletion. Try moving or deleting the contents first, or use force option.`,
+          )
         }
       }
-      return this.formatError(error, "deleting folder")
+      const message = error instanceof Error ? error.message : "Unknown error"
+      throw new ToolError(`Failed to delete folder: ${message}`)
     }
   }
 }

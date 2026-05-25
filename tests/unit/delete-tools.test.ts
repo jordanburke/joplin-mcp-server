@@ -84,16 +84,15 @@ describe("Delete Tools", () => {
       expect(result).toContain("Type: Todo (Completed)")
     })
 
-    it("should handle note not found", async () => {
+    it("should throw when the note is not found", async () => {
       mockApiClient.get.mockResolvedValue(Right(null))
 
-      const result = await deleteNote.call({
-        note_id: "a1b2c3d4e5f6789012345678901234567890abcd",
-        confirm: true,
-      })
-
-      expect(result).toContain("Note with ID")
-      expect(result).toContain("not found")
+      await expect(
+        deleteNote.call({
+          note_id: "a1b2c3d4e5f6789012345678901234567890abcd",
+          confirm: true,
+        }),
+      ).rejects.toThrow(/Note with ID .* not found/)
       expect(mockApiClient.delete).not.toHaveBeenCalled()
     })
 
@@ -107,31 +106,30 @@ describe("Delete Tools", () => {
       expect(mockApiClient.get).not.toHaveBeenCalled()
     })
 
-    it("should handle API errors", async () => {
+    it("should throw when API returns an error", async () => {
       mockApiClient.get.mockResolvedValue(Right(mockNote))
       mockApiClient.delete.mockResolvedValue(Left(new Error("API Error")))
 
-      const result = await deleteNote.call({
-        note_id: "a1b2c3d4e5f6789012345678901234567890abcd",
-        confirm: true,
-      })
-
-      expect(result).toContain("Error deleting note")
+      await expect(
+        deleteNote.call({
+          note_id: "a1b2c3d4e5f6789012345678901234567890abcd",
+          confirm: true,
+        }),
+      ).rejects.toThrow(/Failed to delete note/)
     })
 
-    it("should handle 404 errors on delete", async () => {
+    it("should throw on 404 from delete", async () => {
       mockApiClient.get.mockResolvedValue(Right(mockNote))
       const error = new Error("Not found")
       ;(error as any).response = { status: 404 }
       mockApiClient.delete.mockResolvedValue(Left(error))
 
-      const result = await deleteNote.call({
-        note_id: "a1b2c3d4e5f6789012345678901234567890abcd",
-        confirm: true,
-      })
-
-      expect(result).toContain("Note with ID")
-      expect(result).toContain("not found")
+      await expect(
+        deleteNote.call({
+          note_id: "a1b2c3d4e5f6789012345678901234567890abcd",
+          confirm: true,
+        }),
+      ).rejects.toThrow(/Note with ID .* not found/)
     })
   })
 
@@ -214,16 +212,15 @@ describe("Delete Tools", () => {
       expect(result).toContain("Deleted Content: 1 notes and 0 subfolders")
     })
 
-    it("should handle folder not found", async () => {
+    it("should throw when the folder is not found", async () => {
       mockApiClient.get.mockResolvedValue(Right(null))
 
-      const result = await deleteFolder.call({
-        folder_id: "a1b2c3d4e5f6789012345678901234567890abcd",
-        confirm: true,
-      })
-
-      expect(result).toContain("Folder with ID")
-      expect(result).toContain("not found")
+      await expect(
+        deleteFolder.call({
+          folder_id: "a1b2c3d4e5f6789012345678901234567890abcd",
+          confirm: true,
+        }),
+      ).rejects.toThrow(/Folder with ID .* not found/)
       expect(mockApiClient.delete).not.toHaveBeenCalled()
     })
 
@@ -237,22 +234,22 @@ describe("Delete Tools", () => {
       expect(mockApiClient.get).not.toHaveBeenCalled()
     })
 
-    it("should handle API errors", async () => {
+    it("should throw when API returns an error", async () => {
       mockApiClient.get
         .mockResolvedValueOnce(Right(mockFolder))
         .mockResolvedValueOnce(Right({ items: [] }))
         .mockResolvedValueOnce(Right({ items: [] }))
       mockApiClient.delete.mockResolvedValue(Left(new Error("API Error")))
 
-      const result = await deleteFolder.call({
-        folder_id: "a1b2c3d4e5f6789012345678901234567890abcd",
-        confirm: true,
-      })
-
-      expect(result).toContain("Error deleting folder")
+      await expect(
+        deleteFolder.call({
+          folder_id: "a1b2c3d4e5f6789012345678901234567890abcd",
+          confirm: true,
+        }),
+      ).rejects.toThrow(/Failed to delete folder/)
     })
 
-    it("should handle 409 conflict errors", async () => {
+    it("should throw on 409 conflict", async () => {
       mockApiClient.get
         .mockResolvedValueOnce(Right(mockFolder))
         .mockResolvedValueOnce(Right({ items: [] }))
@@ -261,13 +258,12 @@ describe("Delete Tools", () => {
       ;(error as any).response = { status: 409 }
       mockApiClient.delete.mockResolvedValue(Left(error))
 
-      const result = await deleteFolder.call({
-        folder_id: "a1b2c3d4e5f6789012345678901234567890abcd",
-        confirm: true,
-      })
-
-      expect(result).toContain("Cannot delete folder")
-      expect(result).toContain("may contain items that prevent deletion")
+      await expect(
+        deleteFolder.call({
+          folder_id: "a1b2c3d4e5f6789012345678901234567890abcd",
+          confirm: true,
+        }),
+      ).rejects.toThrow(/may contain items that prevent deletion/)
     })
 
     it("should validate required parameters", async () => {

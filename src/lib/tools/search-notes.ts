@@ -1,5 +1,5 @@
 import type { JoplinFolder, JoplinNote } from "./base-tool.js"
-import BaseTool from "./base-tool.js"
+import BaseTool, { ToolError } from "./base-tool.js"
 
 interface SearchResult {
   items: JoplinNote[]
@@ -83,7 +83,10 @@ class SearchNotes extends BaseTool {
 
       return resultLines.join("\n")
     } catch (error: unknown) {
-      return this.formatError(error, "searching notes")
+      if (error instanceof ToolError) throw error
+      process.stderr.write(`searching notes error: ${error}\n`)
+      const message = error instanceof Error ? error.message : "Unknown error"
+      throw new ToolError(`Failed to search notes: ${message}`)
     }
   }
 }

@@ -11,6 +11,7 @@ import { fileURLToPath } from "url"
 
 import { DEFAULT_API_PORT, JoplinSidecar, type SyncTarget } from "./lib/joplin-sidecar.js"
 import parseArgs from "./lib/parse-args.js"
+import { ToolError } from "./lib/tools/index.js"
 import { initializeJoplinManager } from "./server-core.js"
 import { startFastMCPServer } from "./server-fastmcp.js"
 
@@ -20,9 +21,15 @@ const { transport, httpPort, profileDir, syncTarget } = parsedArgs
 
 const isHttpMode = transport === "http"
 
-// External mode: JOPLIN_HOST/JOPLIN_PORT set = connect directly, skip sidecar
-const externalHost = process.env.JOPLIN_HOST
-const externalPort = process.env.JOPLIN_PORT ? parseInt(process.env.JOPLIN_PORT, 10) : undefined
+// External mode: JOPLIN_HOST/JOPLIN_PORT set = connect directly, skip sidecar.
+// Normalize empty strings to undefined so `JOPLIN_HOST=` (a common way to
+// "unset" an inherited env var) does not trigger external mode with an empty host.
+const externalHost =
+  process.env.JOPLIN_HOST !== undefined && process.env.JOPLIN_HOST !== "" ? process.env.JOPLIN_HOST : undefined
+const externalPort =
+  process.env.JOPLIN_PORT !== undefined && process.env.JOPLIN_PORT !== ""
+    ? parseInt(process.env.JOPLIN_PORT, 10)
+    : undefined
 const externalMode = externalHost !== undefined || externalPort !== undefined
 
 // Token is required for external mode, auto-generated for sidecar mode
@@ -410,9 +417,12 @@ async function startStdioServer(host: string, port: number, token: string, sidec
           throw new Error(`Unknown tool: ${toolName}`)
       }
     } catch (error) {
+      // ToolError already carries a user-facing message; pass it through verbatim.
+      // For unexpected errors, prefix with "Error:" to make the failure obvious.
       const errorMessage = error instanceof Error ? error.message : String(error)
+      const text = error instanceof ToolError ? errorMessage : `Error: ${errorMessage}`
       return {
-        content: [{ type: "text", text: `Error: ${errorMessage}` }],
+        content: [{ type: "text", text }],
         isError: true,
       }
     }

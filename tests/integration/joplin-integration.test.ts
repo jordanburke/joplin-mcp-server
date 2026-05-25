@@ -140,14 +140,11 @@ describe("Joplin Integration Tests", () => {
       expect(Either.isLeft(result)).toBe(true)
     })
 
-    it("should handle invalid notebook ID in ReadNotebook tool", async () => {
+    it("should throw on invalid notebook ID in ReadNotebook tool", async () => {
       if (skipTests) return
 
       const tool = new ReadNotebook(client)
-      const result = await tool.call("invalid-notebook-id")
-
-      expect(typeof result).toBe("string")
-      expect(result).toContain("not found")
+      await expect(tool.call("invalid-notebook-id")).rejects.toThrow(/not found/)
     })
   })
 })

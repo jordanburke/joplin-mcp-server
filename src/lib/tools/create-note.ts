@@ -1,5 +1,5 @@
 import type { JoplinFolder, JoplinNote } from "./base-tool.js"
-import BaseTool from "./base-tool.js"
+import BaseTool, { extractJoplinErrorMessage, ToolError } from "./base-tool.js"
 
 interface CreateNoteOptions {
   title?: string | undefined
@@ -42,9 +42,17 @@ class CreateNote extends BaseTool {
       // Create the note
       const createdNote = this.unwrap(await this.apiClient.post<CreateNoteResponse>("/notes", requestBody))
 
-      // Validate response
+      // Joplin can respond with HTTP 200 and `{ error: "..." }` in the body when
+      // an operation fails (e.g. invalid parent_id). Catch that before treating
+      // it as a successful response.
+      const joplinError = extractJoplinErrorMessage(createdNote)
+      if (joplinError !== undefined) {
+        throw new ToolError(`Failed to create note: ${joplinError}`)
+      }
       if (!createdNote || typeof createdNote !== "object" || !createdNote.id) {
-        return "Error: Unexpected response format from Joplin API when creating note"
+        throw new ToolError(
+          `Failed to create note: Joplin API returned an unexpected response (no note id). Raw response: ${JSON.stringify(createdNote)}`,
+        )
       }
 
       // Get notebook info if available
@@ -91,17 +99,25 @@ class CreateNote extends BaseTool {
 
       return resultLines.join("\n")
     } catch (error: unknown) {
+      // Re-throw ToolErrors as-is (already formatted for the caller)
+      if (error instanceof ToolError) throw error
+
       const err = error as { response?: { status?: number; data?: { error?: string } } }
+      process.stderr.write(`creating note error: ${error}\n`)
       if (err.response) {
-        // Handle specific API errors
         if (err.response.status === 400) {
-          return `Error creating note: Invalid request data.\n\nPlease check your input parameters. ${err.response.data?.error ?? ""}`
+          throw new ToolError(
+            `Failed to create note: Invalid request data. ${err.response.data?.error ?? "Please check your input parameters."}`,
+          )
         }
         if (err.response.status === 404 && options.parent_id !== undefined) {
-          return `Error: Notebook with ID "${options.parent_id}" not found.\n\nUse list_notebooks to see available notebooks and their IDs.`
+          throw new ToolError(
+            `Failed to create note: Notebook with ID "${options.parent_id}" not found. Use list_notebooks to see available notebooks and their IDs.`,
+          )
         }
       }
-      return this.formatError(error, "creating note")
+      const message = error instanceof Error ? error.message : "Unknown error"
+      throw new ToolError(`Failed to create note: ${message}`)
     }
   }
 }

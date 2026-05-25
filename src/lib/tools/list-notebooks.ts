@@ -1,5 +1,5 @@
 import type { JoplinFolder } from "./base-tool.js"
-import BaseTool from "./base-tool.js"
+import BaseTool, { ToolError } from "./base-tool.js"
 
 class ListNotebooks extends BaseTool {
   async call(): Promise<string> {
@@ -37,7 +37,10 @@ class ListNotebooks extends BaseTool {
 
       return resultLines.join("")
     } catch (error: unknown) {
-      return this.formatError(error, "listing notebooks")
+      if (error instanceof ToolError) throw error
+      process.stderr.write(`listing notebooks error: ${error}\n`)
+      const message = error instanceof Error ? error.message : "Unknown error"
+      throw new ToolError(`Failed to list notebooks: ${message}`)
     }
   }
 

@@ -1,5 +1,5 @@
 import type { JoplinFolder } from "./base-tool.js"
-import BaseTool from "./base-tool.js"
+import BaseTool, { extractJoplinErrorMessage, ToolError } from "./base-tool.js"
 
 interface CreateFolderOptions {
   title: string
@@ -40,9 +40,16 @@ class CreateFolder extends BaseTool {
       // Create the folder
       const createdFolder = this.unwrap(await this.apiClient.post<CreateFolderResponse>("/folders", requestBody))
 
-      // Validate response
+      // Joplin can respond with HTTP 200 and `{ error: "..." }` in the body when
+      // an operation fails. Catch that before treating it as success.
+      const joplinError = extractJoplinErrorMessage(createdFolder)
+      if (joplinError !== undefined) {
+        throw new ToolError(`Failed to create notebook: ${joplinError}`)
+      }
       if (!createdFolder || typeof createdFolder !== "object" || !createdFolder.id) {
-        return "Error: Unexpected response format from Joplin API when creating folder"
+        throw new ToolError(
+          `Failed to create notebook: Joplin API returned an unexpected response (no folder id). Raw response: ${JSON.stringify(createdFolder)}`,
+        )
       }
 
       // Get parent notebook info if available
@@ -83,20 +90,29 @@ class CreateFolder extends BaseTool {
 
       return resultLines.join("\n")
     } catch (error: unknown) {
+      if (error instanceof ToolError) throw error
+
       const err = error as { response?: { status?: number; data?: { error?: string } } }
+      process.stderr.write(`creating notebook error: ${error}\n`)
       if (err.response) {
-        // Handle specific API errors
         if (err.response.status === 400) {
-          return `Error creating notebook: Invalid request data.\n\nPlease check your input parameters. ${err.response.data?.error ?? ""}`
+          throw new ToolError(
+            `Failed to create notebook: Invalid request data. ${err.response.data?.error ?? "Please check your input parameters."}`,
+          )
         }
         if (err.response.status === 404 && options.parent_id !== undefined) {
-          return `Error: Parent notebook with ID "${options.parent_id}" not found.\n\nUse list_notebooks to see available notebooks and their IDs, or omit parent_id to create a top-level notebook.`
+          throw new ToolError(
+            `Failed to create notebook: Parent notebook with ID "${options.parent_id}" not found. Use list_notebooks to see available notebooks and their IDs, or omit parent_id to create a top-level notebook.`,
+          )
         }
         if (err.response.status === 409) {
-          return `Error: A notebook with the title "${options.title}" might already exist in this location.\n\nTry a different title or check existing notebooks with list_notebooks.`
+          throw new ToolError(
+            `Failed to create notebook: A notebook with the title "${options.title}" might already exist in this location. Try a different title or check existing notebooks with list_notebooks.`,
+          )
         }
       }
-      return this.formatError(error, "creating notebook")
+      const message = error instanceof Error ? error.message : "Unknown error"
+      throw new ToolError(`Failed to create notebook: ${message}`)
     }
   }
 }

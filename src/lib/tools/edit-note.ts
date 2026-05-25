@@ -1,5 +1,5 @@
 import type { JoplinFolder, JoplinNote } from "./base-tool.js"
-import BaseTool from "./base-tool.js"
+import BaseTool, { extractJoplinErrorMessage, ToolError } from "./base-tool.js"
 
 interface EditNoteOptions {
   note_id: string
@@ -53,8 +53,14 @@ class EditNote extends BaseTool {
         }),
       )
 
+      const currentNoteError = extractJoplinErrorMessage(currentNote)
+      if (currentNoteError !== undefined) {
+        throw new ToolError(`Failed to load note "${options.note_id}": ${currentNoteError}`)
+      }
       if (!currentNote?.id) {
-        return `Note with ID "${options.note_id}" not found.\n\nUse search_notes to find notes and their IDs.`
+        throw new ToolError(
+          `Note with ID "${options.note_id}" not found. Use search_notes to find notes and their IDs.`,
+        )
       }
 
       // Prepare the update body - only include fields that are being updated
@@ -73,9 +79,16 @@ class EditNote extends BaseTool {
         await this.apiClient.put<EditNoteResponse>(`/notes/${options.note_id}`, updateBody),
       )
 
-      // Validate response
+      // Joplin can respond with HTTP 200 and `{ error: "..." }` in the body when
+      // an operation fails. Catch that before treating it as success.
+      const joplinError = extractJoplinErrorMessage(updatedNote)
+      if (joplinError !== undefined) {
+        throw new ToolError(`Failed to update note: ${joplinError}`)
+      }
       if (!updatedNote || typeof updatedNote !== "object" || !updatedNote.id) {
-        return "Error: Unexpected response format from Joplin API when updating note"
+        throw new ToolError(
+          `Failed to update note: Joplin API returned an unexpected response (no note id). Raw response: ${JSON.stringify(updatedNote)}`,
+        )
       }
 
       // Get notebook info for both old and new locations if parent_id changed
@@ -161,19 +174,29 @@ class EditNote extends BaseTool {
 
       return resultLines.join("\n")
     } catch (error: unknown) {
+      if (error instanceof ToolError) throw error
+
       const err = error as { response?: { status?: number; data?: { error?: string } } }
+      process.stderr.write(`updating note error: ${error}\n`)
       if (err.response) {
+        if (err.response.status === 404 && options.parent_id !== undefined) {
+          throw new ToolError(
+            `Failed to update note: Notebook with ID "${options.parent_id}" not found. Use list_notebooks to see available notebooks and their IDs.`,
+          )
+        }
         if (err.response.status === 404) {
-          return `Note with ID "${options.note_id}" not found.\n\nUse search_notes to find notes and their IDs.`
+          throw new ToolError(
+            `Failed to update note: Note with ID "${options.note_id}" not found. Use search_notes to find notes and their IDs.`,
+          )
         }
         if (err.response.status === 400) {
-          return `Error updating note: Invalid request data.\n\nPlease check your input parameters. ${err.response.data?.error ?? ""}`
-        }
-        if (err.response.status === 404 && options.parent_id !== undefined) {
-          return `Error: Notebook with ID "${options.parent_id}" not found.\n\nUse list_notebooks to see available notebooks and their IDs.`
+          throw new ToolError(
+            `Failed to update note: Invalid request data. ${err.response.data?.error ?? "Please check your input parameters."}`,
+          )
         }
       }
-      return this.formatError(error, "updating note")
+      const message = error instanceof Error ? error.message : "Unknown error"
+      throw new ToolError(`Failed to update note: ${message}`)
     }
   }
 }

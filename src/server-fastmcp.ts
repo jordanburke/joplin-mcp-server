@@ -1,11 +1,26 @@
-import { FastMCP } from "fastmcp"
+import { FastMCP, UserError } from "fastmcp"
 import { readFileSync } from "fs"
 import { dirname, join } from "path"
 import { fileURLToPath } from "url"
 import { z } from "zod"
 
+import { ToolError } from "./lib/tools/index.js"
 import type { JoplinServerManager } from "./server-core.js"
 import { initializeJoplinManager } from "./server-core.js"
+
+/**
+ * Convert a ToolError thrown by a tool into a FastMCP UserError so the error
+ * message reaches the agent verbatim with isError: true (instead of being
+ * wrapped in FastMCP's generic "Tool 'x' execution failed: ..." envelope).
+ */
+const runWithUserError = async <T>(fn: () => Promise<T>): Promise<T> => {
+  try {
+    return await fn()
+  } catch (e) {
+    if (e instanceof ToolError) throw new UserError(e.message)
+    throw e
+  }
+}
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -49,9 +64,7 @@ export function createFastMCPServer(options: FastMCPServerOptions): { server: Fa
     name: "list_notebooks",
     description: "Retrieve the complete notebook hierarchy from Joplin",
     parameters: z.object({}),
-    execute: async () => {
-      return await manager.listNotebooks()
-    },
+    execute: () => runWithUserError(() => manager.listNotebooks()),
   })
 
   // Add search_notes tool
@@ -61,9 +74,7 @@ export function createFastMCPServer(options: FastMCPServerOptions): { server: Fa
     parameters: z.object({
       query: z.string().describe("Search query for notes"),
     }),
-    execute: async (args) => {
-      return await manager.searchNotes(args.query)
-    },
+    execute: (args) => runWithUserError(() => manager.searchNotes(args.query)),
   })
 
   // Add read_notebook tool
@@ -73,9 +84,7 @@ export function createFastMCPServer(options: FastMCPServerOptions): { server: Fa
     parameters: z.object({
       notebook_id: z.string().describe("ID of the notebook to read"),
     }),
-    execute: async (args) => {
-      return await manager.readNotebook(args.notebook_id)
-    },
+    execute: (args) => runWithUserError(() => manager.readNotebook(args.notebook_id)),
   })
 
   // Add read_note tool
@@ -85,9 +94,7 @@ export function createFastMCPServer(options: FastMCPServerOptions): { server: Fa
     parameters: z.object({
       note_id: z.string().describe("ID of the note to read"),
     }),
-    execute: async (args) => {
-      return await manager.readNote(args.note_id)
-    },
+    execute: (args) => runWithUserError(() => manager.readNote(args.note_id)),
   })
 
   // Add read_multinote tool
@@ -97,9 +104,7 @@ export function createFastMCPServer(options: FastMCPServerOptions): { server: Fa
     parameters: z.object({
       note_ids: z.array(z.string()).describe("Array of note IDs to read"),
     }),
-    execute: async (args) => {
-      return await manager.readMultiNote(args.note_ids)
-    },
+    execute: (args) => runWithUserError(() => manager.readMultiNote(args.note_ids)),
   })
 
   // Add create_note tool
@@ -114,9 +119,7 @@ export function createFastMCPServer(options: FastMCPServerOptions): { server: Fa
       is_todo: z.boolean().optional().describe("Whether this is a todo note"),
       image_data_url: z.string().optional().describe("Base64 encoded image data URL"),
     }),
-    execute: async (args) => {
-      return await manager.createNote(args)
-    },
+    execute: (args) => runWithUserError(() => manager.createNote(args)),
   })
 
   // Add create_folder tool
@@ -127,9 +130,7 @@ export function createFastMCPServer(options: FastMCPServerOptions): { server: Fa
       title: z.string().describe("Notebook title"),
       parent_id: z.string().optional().describe("ID of parent notebook"),
     }),
-    execute: async (args) => {
-      return await manager.createFolder(args)
-    },
+    execute: (args) => runWithUserError(() => manager.createFolder(args)),
   })
 
   // Add edit_note tool
@@ -146,9 +147,7 @@ export function createFastMCPServer(options: FastMCPServerOptions): { server: Fa
       todo_completed: z.boolean().optional().describe("Whether todo is completed"),
       todo_due: z.number().optional().describe("Todo due date (Unix timestamp)"),
     }),
-    execute: async (args) => {
-      return await manager.editNote(args)
-    },
+    execute: (args) => runWithUserError(() => manager.editNote(args)),
   })
 
   // Add edit_folder tool
@@ -160,9 +159,7 @@ export function createFastMCPServer(options: FastMCPServerOptions): { server: Fa
       title: z.string().optional().describe("New folder title"),
       parent_id: z.string().optional().describe("New parent folder ID"),
     }),
-    execute: async (args) => {
-      return await manager.editFolder(args)
-    },
+    execute: (args) => runWithUserError(() => manager.editFolder(args)),
   })
 
   // Add delete_note tool
@@ -173,9 +170,7 @@ export function createFastMCPServer(options: FastMCPServerOptions): { server: Fa
       note_id: z.string().describe("ID of the note to delete"),
       confirm: z.boolean().optional().describe("Confirmation flag"),
     }),
-    execute: async (args) => {
-      return await manager.deleteNote(args)
-    },
+    execute: (args) => runWithUserError(() => manager.deleteNote(args)),
   })
 
   // Add delete_folder tool
@@ -187,9 +182,7 @@ export function createFastMCPServer(options: FastMCPServerOptions): { server: Fa
       confirm: z.boolean().optional().describe("Confirmation flag"),
       force: z.boolean().optional().describe("Force delete even if folder has contents"),
     }),
-    execute: async (args) => {
-      return await manager.deleteFolder(args)
-    },
+    execute: (args) => runWithUserError(() => manager.deleteFolder(args)),
   })
 
   // Add sync tool
@@ -197,9 +190,7 @@ export function createFastMCPServer(options: FastMCPServerOptions): { server: Fa
     name: "sync",
     description: "Trigger a Joplin sync to push/pull changes with the configured sync target",
     parameters: z.object({}),
-    execute: async () => {
-      return await manager.sync()
-    },
+    execute: () => runWithUserError(() => manager.sync()),
   })
 
   process.stderr.write("FastMCP server configured with 12 Joplin tools\n")

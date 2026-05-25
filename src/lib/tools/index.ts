@@ -1,3 +1,4 @@
+import { ToolError } from "./base-tool.js"
 import CreateFolder from "./create-folder.js"
 import CreateNote from "./create-note.js"
 import DeleteFolder from "./delete-folder.js"
@@ -22,4 +23,5 @@ export {
   ReadNote,
   ReadNotebook,
   SearchNotes,
+  ToolError,
 }

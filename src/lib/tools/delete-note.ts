@@ -1,5 +1,5 @@
 import type { JoplinFolder, JoplinNote } from "./base-tool.js"
-import BaseTool from "./base-tool.js"
+import BaseTool, { extractJoplinErrorMessage, ToolError } from "./base-tool.js"
 
 interface DeleteNoteOptions {
   note_id: string
@@ -35,8 +35,14 @@ class DeleteNote extends BaseTool {
         }),
       )
 
+      const noteLoadError = extractJoplinErrorMessage(noteToDelete)
+      if (noteLoadError !== undefined) {
+        throw new ToolError(`Failed to load note "${options.note_id}": ${noteLoadError}`)
+      }
       if (!noteToDelete?.id) {
-        return `Note with ID "${options.note_id}" not found.\n\nUse search_notes to find notes and their IDs.`
+        throw new ToolError(
+          `Note with ID "${options.note_id}" not found. Use search_notes to find notes and their IDs.`,
+        )
       }
 
       // Get notebook info if available
@@ -58,7 +64,11 @@ class DeleteNote extends BaseTool {
       })()
 
       // Delete the note
-      this.unwrap(await this.apiClient.delete(`/notes/${options.note_id}`))
+      const deleteResponse = this.unwrap(await this.apiClient.delete(`/notes/${options.note_id}`))
+      const deleteError = extractJoplinErrorMessage(deleteResponse)
+      if (deleteError !== undefined) {
+        throw new ToolError(`Failed to delete note: ${deleteError}`)
+      }
 
       // Format success response
       const resultLines: string[] = []
@@ -100,16 +110,24 @@ class DeleteNote extends BaseTool {
 
       return resultLines.join("\n")
     } catch (error: unknown) {
+      if (error instanceof ToolError) throw error
+
       const err = error as { response?: { status?: number } }
+      process.stderr.write(`deleting note error: ${error}\n`)
       if (err.response) {
         if (err.response.status === 404) {
-          return `Note with ID "${options.note_id}" not found.\n\nUse search_notes to find notes and their IDs.`
+          throw new ToolError(
+            `Failed to delete note: Note with ID "${options.note_id}" not found. Use search_notes to find notes and their IDs.`,
+          )
         }
         if (err.response.status === 403) {
-          return `Permission denied: Cannot delete note with ID "${options.note_id}".\n\nThis might be a protected system note.`
+          throw new ToolError(
+            `Failed to delete note: Permission denied for note with ID "${options.note_id}". This might be a protected system note.`,
+          )
         }
       }
-      return this.formatError(error, "deleting note")
+      const message = error instanceof Error ? error.message : "Unknown error"
+      throw new ToolError(`Failed to delete note: ${message}`)
     }
   }
 }
