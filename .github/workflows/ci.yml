@@ -15,8 +15,9 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [22.x]
+        node-version: [22.x, 24.x]
         # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+        # 24.x matches the publish runtime; validates native addons (sqlite3, keytar) there.
 
     steps:
       - uses: actions/checkout@v3
