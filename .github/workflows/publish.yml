@@ -24,7 +24,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22.x"
+          # Node 24 ships npm 11.5.1+, which fixes the OIDC trusted-publishing
+          # handshake bug present in Node 22's npm 10.x (npm/cli#8976).
+          node-version: "24.x"
           registry-url: "https://registry.npmjs.org"
 
       - name: Install system dependencies
@@ -35,9 +37,6 @@ jobs:
 
       - name: Run validation pipeline
         run: pnpm run validate
-
-      - name: Update npm
-        run: npm install -g npm@latest
 
       - name: Verify package contents
         run: |
