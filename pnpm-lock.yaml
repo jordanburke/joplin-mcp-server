@@ -42,8 +42,8 @@ importers:
         specifier: ^6.1.3
         version: 6.1.3
       ts-builds:
-        specifier: ^2.8.2
-        version: 2.8.2(@typescript-eslint/eslint-plugin@8.62.0(@typescript-eslint/parser@8.62.0(eslint@10.5.0)(typescript@6.0.3))(eslint@10.5.0)(typescript@6.0.3))(@typescript-eslint/parser@8.62.0(eslint@10.5.0)(typescript@6.0.3))(jsdom@26.1.0)(tsdown@0.22.3(tsx@4.22.4)(typescript@6.0.3)(unrun@0.2.27(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(synckit@0.11.13)))(vite@7.3.1(@types/node@22.20.0)(tsx@4.22.4))
+        specifier: ^3.2.1
+        version: 3.2.1(@typescript-eslint/eslint-plugin@8.62.0(@typescript-eslint/parser@8.62.0(eslint@10.5.0)(typescript@6.0.3))(eslint@10.5.0)(typescript@6.0.3))(@typescript-eslint/parser@8.62.0(eslint@10.5.0)(typescript@6.0.3))(jsdom@26.1.0)(tsdown@0.22.3(tsx@4.22.4)(typescript@6.0.3)(unrun@0.2.27(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(synckit@0.11.13)))(vite@7.3.1(@types/node@22.20.0)(tsx@4.22.4))
       tsdown:
         specifier: ^0.22.3
         version: 0.22.3(tsx@4.22.4)(typescript@6.0.3)(unrun@0.2.27(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(synckit@0.11.13))
@@ -2186,6 +2186,7 @@ packages:
     resolution:
       { integrity: sha512-5amtFHWmJz+x0mKcwKJUBm2nKOJjO0MzzuVhrHFnmDWsUqP1VUsTxENoRdGitwoCH/o+MttLmf1/+lvgkYzbiw== }
     engines: { node: ">= 10.0.0" }
+    deprecated: The AWS SDK for JavaScript (v2) has reached end-of-support, and no longer receives updates. Please migrate your code to use AWS SDK for JavaScript (v3). More info https://a.co/cUPnyil
 
   aws-sign2@0.7.0:
     resolution:
@@ -5403,9 +5404,10 @@ packages:
     peerDependencies:
       typescript: ">=4.8.4"
 
-  ts-builds@2.8.2:
+  ts-builds@3.2.1:
     resolution:
-      { integrity: sha512-gAnX6NN18S0zbd9a98oVN+7fOs0hwjVDy9QJokkWkwa30DJm7eovJF3gHABYyaOIIUa/34agMlHPgSm/D9/Dkg== }
+      { integrity: sha512-j1J3UKfRQ3Ve1viF/OXP15i6U6KAW/2kwgqjKZ4Ajli+/8tqVwxu49T0Wp7SL71LIWo+XS3iFdmeWJHFQd31cQ== }
+    engines: { node: ">=22" }
     hasBin: true
     peerDependencies:
       tsdown: ^0.x
@@ -10794,7 +10796,7 @@ snapshots:
     dependencies:
       typescript: 6.0.3
 
-  ts-builds@2.8.2(@typescript-eslint/eslint-plugin@8.62.0(@typescript-eslint/parser@8.62.0(eslint@10.5.0)(typescript@6.0.3))(eslint@10.5.0)(typescript@6.0.3))(@typescript-eslint/parser@8.62.0(eslint@10.5.0)(typescript@6.0.3))(jsdom@26.1.0)(tsdown@0.22.3(tsx@4.22.4)(typescript@6.0.3)(unrun@0.2.27(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(synckit@0.11.13)))(vite@7.3.1(@types/node@22.20.0)(tsx@4.22.4)):
+  ts-builds@3.2.1(@typescript-eslint/eslint-plugin@8.62.0(@typescript-eslint/parser@8.62.0(eslint@10.5.0)(typescript@6.0.3))(eslint@10.5.0)(typescript@6.0.3))(@typescript-eslint/parser@8.62.0(eslint@10.5.0)(typescript@6.0.3))(jsdom@26.1.0)(tsdown@0.22.3(tsx@4.22.4)(typescript@6.0.3)(unrun@0.2.27(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)(synckit@0.11.13)))(vite@7.3.1(@types/node@22.20.0)(tsx@4.22.4)):
     dependencies:
       "@eslint/js": 10.0.1(eslint@10.5.0)
       "@types/node": 24.10.15
