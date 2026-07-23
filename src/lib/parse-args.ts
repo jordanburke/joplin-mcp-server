@@ -11,6 +11,10 @@ export type ParsedArgs = {
   httpPort: number
   profileDir: string
   syncTarget: Option<SyncTarget>
+  // A token passed explicitly via --token. Kept distinct from an ambient
+  // JOPLIN_TOKEN so sidecar mode can honor the deliberate flag while ignoring an
+  // inherited environment variable that belongs to a different (external) Joplin.
+  explicitToken: Option<string>
 }
 
 // Local expandVars preserves the existing "silently substitute empty for missing
@@ -204,13 +208,9 @@ function parseArgs(): ParsedArgs {
     (file) => loadEnvFile(resolve(process.cwd(), file)),
   )
 
-  // Handle --token
-  extractArg(args, "--token").fold(
-    () => {},
-    (token) => {
-      process.env.JOPLIN_TOKEN = token
-    },
-  )
+  // Handle --token. Surfaced as an explicit value rather than written into the
+  // environment, so downstream can tell a deliberate flag from an inherited var.
+  const explicitToken = extractArg(args, "--token")
 
   // Handle --transport
   const transport: "stdio" | "http" = extractArg(args, "--transport")
@@ -286,7 +286,8 @@ OPTIONS:
   --help, -h                 Show this help message
 
 ENVIRONMENT VARIABLES:
-  JOPLIN_TOKEN               Joplin API token (required)
+  JOPLIN_TOKEN               API token for external mode (JOPLIN_HOST/JOPLIN_PORT).
+                             Ignored in sidecar mode, which manages its own token.
   JOPLIN_HOST                Connect to existing Joplin at this host (skips sidecar)
   JOPLIN_PORT                Connect to existing Joplin on this port (skips sidecar)
   JOPLIN_CLI                 Path to joplin CLI binary (overrides auto-detection)
@@ -343,6 +344,7 @@ Find your Joplin token in: Tools > Options > Web Clipper
     httpPort,
     profileDir,
     syncTarget: resolvedSyncTarget,
+    explicitToken,
   }
 }
 
