@@ -6,18 +6,20 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { type CallToolRequest, CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js"
 import fs from "fs"
+import { Option } from "functype"
 import path from "path"
 import { fileURLToPath } from "url"
 
 import { DEFAULT_API_PORT, JoplinSidecar, type SyncTarget } from "./lib/joplin-sidecar.js"
 import parseArgs from "./lib/parse-args.js"
+import { externalTokenMissing, resolveTokenSource } from "./lib/resolve-token.js"
 import { ToolError } from "./lib/tools/index.js"
 import { initializeJoplinManager } from "./server-core.js"
 import { startFastMCPServer } from "./server-fastmcp.js"
 
 // Parse command line arguments
 const parsedArgs = parseArgs()
-const { transport, httpPort, profileDir, syncTarget } = parsedArgs
+const { transport, httpPort, profileDir, syncTarget, explicitToken } = parsedArgs
 
 const isHttpMode = transport === "http"
 
@@ -32,19 +34,26 @@ const externalPort =
     : undefined
 const externalMode = externalHost !== undefined || externalPort !== undefined
 
-// Token is required for external mode, auto-generated for sidecar mode
-if (!process.env.JOPLIN_TOKEN && externalMode) {
+const generateToken = (): string => `mcp-${crypto.randomUUID().replace(/-/g, "").slice(0, 32)}`
+
+const explicitTokenValue = explicitToken.orUndefined()
+const ambientToken = process.env.JOPLIN_TOKEN
+const tokenInput = { externalMode, explicitToken, ambientToken: Option(ambientToken) }
+
+// External mode connects to a Joplin we do not own, so a caller-supplied token is
+// required: an explicit --token first, otherwise the ambient JOPLIN_TOKEN.
+if (externalTokenMissing(tokenInput)) {
   process.stderr.write(
-    "Error: JOPLIN_TOKEN is required in external mode. Use --token <token> or set JOPLIN_TOKEN environment variable.\n",
+    "Error: a token is required in external mode. Use --token <token> or set JOPLIN_TOKEN environment variable.\n",
   )
   process.exit(1)
 }
 
-// In sidecar mode, persist the auto-generated token so the config hash stays stable
-// across restarts, enabling config caching to skip redundant `joplin config` CLI calls.
-const joplinToken = (() => {
-  if (process.env.JOPLIN_TOKEN) return process.env.JOPLIN_TOKEN
-  if (externalMode) return `mcp-${crypto.randomUUID().replace(/-/g, "").slice(0, 32)}`
+// Read the sidecar's own token from its profile, generating and persisting one on
+// first run. Persisting keeps the config hash stable across restarts (so the
+// `joplin config` step can be skipped) and lets other MCP processes on the same
+// profile converge on one shared sidecar.
+const readOrCreateProfileToken = (): string => {
   const tokenPath = path.join(profileDir, ".mcp-token")
   try {
     const saved = fs.readFileSync(tokenPath, "utf-8").trim()
@@ -52,7 +61,7 @@ const joplinToken = (() => {
   } catch {
     // No saved token yet
   }
-  const token = `mcp-${crypto.randomUUID().replace(/-/g, "").slice(0, 32)}`
+  const token = generateToken()
   try {
     fs.mkdirSync(profileDir, { recursive: true })
     fs.writeFileSync(tokenPath, token)
@@ -60,6 +69,28 @@ const joplinToken = (() => {
     // Non-critical — token still works, just won't be cached
   }
   return token
+}
+
+// Token ownership differs by mode (see resolveTokenSource). In sidecar mode an
+// ambient JOPLIN_TOKEN belongs to a different Joplin and is deliberately ignored.
+const tokenResolution = resolveTokenSource(tokenInput)
+if (tokenResolution.ambientIgnored) {
+  process.stderr.write(
+    "Note: ignoring JOPLIN_TOKEN in sidecar mode; the sidecar manages its own token in the profile. " +
+      "Pass --token to set one explicitly, or JOPLIN_HOST/JOPLIN_PORT to connect to an external Joplin.\n",
+  )
+}
+const joplinToken = ((): string => {
+  switch (tokenResolution.source) {
+    case "explicit":
+      return explicitTokenValue ?? generateToken()
+    case "external-env":
+      return ambientToken ?? generateToken()
+    case "external-generated":
+      return generateToken()
+    case "profile":
+      return readOrCreateProfileToken()
+  }
 })()
 
 async function setupConnection(): Promise<{ host: string; port: number; sidecar: JoplinSidecar | undefined }> {

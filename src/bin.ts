@@ -25,7 +25,7 @@ Options:
   -h, --help           Show help
 
 Environment Variables:
-  JOPLIN_TOKEN         Joplin API token (required)
+  JOPLIN_TOKEN         API token for external mode; ignored in sidecar mode
   JOPLIN_HOST          Connect to existing Joplin at this host (skips sidecar)
   JOPLIN_PORT          Connect to existing Joplin on this port (skips sidecar)
   JOPLIN_CLI           Path to joplin CLI binary (overrides auto-detection)
