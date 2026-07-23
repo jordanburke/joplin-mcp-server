@@ -25,6 +25,15 @@ describe("Joplin Integration Tests", () => {
     if (Either.isLeft(result)) {
       console.warn("Skipping integration tests: Joplin service not available")
       skipTests = true
+      return
+    }
+
+    // /ping is unauthenticated, so a reachable server says nothing about whether
+    // our token is accepted. Probe an authenticated endpoint before running.
+    const authorized = await client.get("/folders", { query: { limit: 1 } })
+    if (Either.isLeft(authorized)) {
+      console.warn("Skipping integration tests: Joplin rejected the configured JOPLIN_TOKEN")
+      skipTests = true
     }
   })
 
