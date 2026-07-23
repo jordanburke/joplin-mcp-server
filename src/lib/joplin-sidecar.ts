@@ -78,7 +78,38 @@ const fetchWithTimeout = async (url: string, timeoutMs: number = 5_000): Promise
   }
 }
 
-type PortProbeResult = "free" | "joplin_ours" | "joplin_foreign" | "occupied_other" | "occupied_unresponsive"
+type PortProbeResult =
+  "free" | "joplin_ours" | "joplin_foreign" | "joplin_unowned" | "occupied_other" | "occupied_unresponsive"
+
+const CLIPPER_PID_FILE = "clipper-pid.txt"
+
+const readProfileServerPid = (profileDir: string): Option<number> => {
+  try {
+    const raw = fs.readFileSync(join(profileDir, CLIPPER_PID_FILE), "utf-8").trim()
+    const pid = Number.parseInt(raw, 10)
+    return Number.isInteger(pid) && pid > 0 ? Option(pid) : Option.none()
+  } catch {
+    return Option.none()
+  }
+}
+
+const isProcessAlive = (pid: number): boolean => {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch {
+    return false
+  }
+}
+
+// A Joplin server records its PID inside the profile directory it serves. If our
+// profile has no live PID recorded, then whatever is answering on the port belongs
+// to some other profile — reusing it would silently serve the wrong database.
+const servesOurProfile = (profileDir: string): boolean =>
+  readProfileServerPid(profileDir).fold(
+    () => false,
+    (pid) => isProcessAlive(pid),
+  )
 
 const isConnectionRefused = (err: unknown): boolean => {
   const e = err as { cause?: { code?: string; errors?: Array<{ code?: string }> } }
@@ -87,7 +118,7 @@ const isConnectionRefused = (err: unknown): boolean => {
   return false
 }
 
-const probePort = async (port: number, token: string): Promise<PortProbeResult> => {
+const probePort = async (port: number, token: string, profileDir: string): Promise<PortProbeResult> => {
   try {
     const pingResponse = await fetchWithTimeout(`http://127.0.0.1:${port}/ping`, 3_000)
     const body = await pingResponse.text()
@@ -99,7 +130,9 @@ const probePort = async (port: number, token: string): Promise<PortProbeResult> 
         `http://127.0.0.1:${port}/folders?token=${encodeURIComponent(token)}&limit=1`,
         3_000,
       )
-      if (authResponse.ok) return "joplin_ours"
+      // Accepting our token is not enough: an orphan serving a different profile
+      // answers identically but exposes the wrong (often empty) database.
+      if (authResponse.ok) return servesOurProfile(profileDir) ? "joplin_ours" : "joplin_unowned"
       return "joplin_foreign"
     } catch {
       return "joplin_foreign"
@@ -117,14 +150,24 @@ type PortResolution =
   | { outcome: "free"; port: number; desktopDetected: boolean }
   | { outcome: "exhausted" }
 
-const resolveAvailablePort = async (startPort: number, token: string): Promise<PortResolution> => {
+const resolveAvailablePort = async (startPort: number, token: string, profileDir: string): Promise<PortResolution> => {
   const tryPort = async (port: number, desktopDetected: boolean): Promise<PortResolution> => {
     if (port >= startPort + MAX_PORT_ATTEMPTS) return { outcome: "exhausted" }
-    const status = await probePort(port, token)
+    const status = await probePort(port, token, profileDir)
     if (status === "free") return { outcome: "free", port, desktopDetected }
     if (status === "joplin_ours") return { outcome: "reuse_existing", port, desktopDetected }
+    if (status === "joplin_unowned") {
+      process.stderr.write(
+        `[joplin-sidecar] Port ${port}: Joplin server accepts our token but serves a different profile ` +
+          `(likely an orphan from a previous run), skipping\n`,
+      )
+      return tryPort(port + 1, desktopDetected)
+    }
     if (status === "joplin_foreign") {
-      process.stderr.write(`[joplin-sidecar] Port ${port}: Joplin Desktop detected (different token), skipping\n`)
+      process.stderr.write(
+        `[joplin-sidecar] Port ${port}: another Joplin instance with a different token ` +
+          `(possibly Joplin Desktop), skipping\n`,
+      )
       return tryPort(port + 1, true)
     }
     process.stderr.write(`[joplin-sidecar] Port ${port} occupied (${status}), trying next...\n`)
@@ -213,9 +256,11 @@ const buildSettingsRecord = (config: SidecarConfig): Record<string, string> => {
 
 const runJoplinConfig = async (cli: string, profileDir: string, key: string, value: string): Promise<void> => {
   const cmd = cli.endsWith("npx") ? "npx" : cli
+  // --profile is a global flag: it must precede the subcommand or the CLI
+  // silently ignores it and falls back to the default ~/.config/joplin profile.
   const args = cli.endsWith("npx")
-    ? ["joplin", "config", "--profile", profileDir, key, value]
-    : ["config", "--profile", profileDir, key, value]
+    ? ["joplin", "--profile", profileDir, "config", key, value]
+    : ["--profile", profileDir, "config", key, value]
   await execFileAsync(cmd, args, { encoding: "utf-8", timeout: 30_000, shell: isWindows })
 }
 
@@ -235,9 +280,10 @@ const configureJoplin = async (cli: string, config: SidecarConfig): Promise<Eith
 const spawnServer = (cli: string, config: SidecarConfig): Either<SidecarError, ChildProcess> => {
   try {
     const cmd = cli.endsWith("npx") ? "npx" : cli
+    // --profile must precede the subcommand (see runJoplinConfig).
     const args = cli.endsWith("npx")
-      ? ["joplin", "server", "start", "--profile", config.profileDir]
-      : ["server", "start", "--profile", config.profileDir]
+      ? ["joplin", "--profile", config.profileDir, "server", "start"]
+      : ["--profile", config.profileDir, "server", "start"]
 
     const proc = spawn(cmd, args, {
       stdio: ["ignore", "pipe", "pipe"],
@@ -357,11 +403,14 @@ const writeConfigCache = (profileDir: string, hash: string): void => {
   }
 }
 
+export { isProcessAlive, readProfileServerPid, servesOurProfile }
+
 export class JoplinSidecar {
   private config: SidecarConfig
   private childProcess: ChildProcess | null = null
   private startPromise: Promise<Either<SidecarError, ChildProcess>> | null = null
   private portResolution: PortResolution | null = null
+  private cleanupRegistered = false
 
   constructor(config: Partial<SidecarConfig> & { apiToken: string }) {
     this.config = {
@@ -373,8 +422,55 @@ export class JoplinSidecar {
     }
   }
 
+  // Best-effort synchronous teardown. Only sync work is possible from an "exit"
+  // handler, and we reap the profile's recorded PID as well as our own child so
+  // that a server we lost the handle to does not survive as an orphan.
+  private killChildSync(): void {
+    // Only reap what we spawned. A server we merely reused may be shared with
+    // another MCP process, so tearing it down here is not ours to do.
+    if (!this.childProcess) return
+    try {
+      this.childProcess.kill("SIGTERM")
+    } catch {
+      // already gone
+    }
+    this.reapRecordedServer()
+  }
+
+  // Under the npx launcher our direct child is only a wrapper — the real Joplin
+  // server is a grandchild that outlives it. Reap it via the PID it recorded in
+  // the profile, which is how orphans accumulated across sessions.
+  private reapRecordedServer(): void {
+    readProfileServerPid(this.config.profileDir).fold(
+      () => undefined,
+      (pid) => {
+        if (pid !== process.pid && isProcessAlive(pid)) {
+          try {
+            process.kill(pid, "SIGTERM")
+          } catch {
+            // already gone
+          }
+        }
+        return undefined
+      },
+    )
+  }
+
+  // SIGINT/SIGTERM are handled by the entrypoint; these cover the exit paths it
+  // misses. A SIGKILLed parent runs no handler at all, which is why start-up
+  // refuses to reuse a server that is not serving our profile.
+  private registerCleanup(): void {
+    if (this.cleanupRegistered) return
+    this.cleanupRegistered = true
+    process.once("exit", () => this.killChildSync())
+    process.once("SIGHUP", () => {
+      this.killChildSync()
+      process.exit(0)
+    })
+  }
+
   async resolvePort(): Promise<Either<SidecarError, number>> {
-    const resolution = await resolveAvailablePort(this.config.apiPort, this.config.apiToken)
+    const resolution = await resolveAvailablePort(this.config.apiPort, this.config.apiToken, this.config.profileDir)
     this.portResolution = resolution
     if (resolution.outcome === "exhausted") {
       const lastPort = this.config.apiPort + MAX_PORT_ATTEMPTS - 1
@@ -477,6 +573,7 @@ export class JoplinSidecar {
         (v) => v,
       )
       this.childProcess = proc
+      this.registerCleanup()
       process.stderr.write(`[joplin-sidecar] Server spawned (pid: ${proc.pid})\n`)
     } else {
       process.stderr.write(
@@ -520,6 +617,7 @@ export class JoplinSidecar {
         })
       })
 
+      this.reapRecordedServer()
       this.childProcess = null
       process.stderr.write("[joplin-sidecar] Server stopped\n")
       return Right(true as const)
