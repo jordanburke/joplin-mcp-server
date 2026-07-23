@@ -109,8 +109,11 @@ describe("sidecar profile ownership", () => {
       expect(computeIdentityHash(moved)).not.toBe(computeIdentityHash(base))
     })
 
-    it("changes when the token changes", () => {
-      expect(computeIdentityHash({ ...base, apiToken: "mcp-other" })).not.toBe(computeIdentityHash(base))
+    // The token is intentionally NOT part of identity: reuse is gated by an auth
+    // probe first, so a server with a different token never reaches the identity
+    // comparison. Keeping it out also avoids writing token-derived data to disk.
+    it("ignores the token", () => {
+      expect(computeIdentityHash({ ...base, apiToken: "mcp-other" })).toBe(computeIdentityHash(base))
     })
 
     // The port is resolved dynamically and says nothing about what the server serves,

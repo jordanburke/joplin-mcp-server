@@ -128,15 +128,19 @@ export type SidecarStamp = {
   identity: string
 }
 
-// Identity of the data a sidecar serves and how it serves it. Deliberately excludes
-// the port, which is resolved dynamically and says nothing about the running server.
+// Identity captures only what the reuse auth-probe does NOT already verify: the
+// release version and the sync configuration. Token compatibility is proven earlier
+// by the probe (a server holding a different token is rejected as foreign before
+// identity is ever compared), so the token is deliberately excluded — including it
+// would be redundant and would write token-derived data into the on-disk stamp. The
+// port is excluded too, being resolved dynamically and saying nothing about the
+// running server.
 const computeIdentityHash = (config: SidecarConfig): string =>
   crypto
     .createHash("sha256")
     .update(
       JSON.stringify({
         version: config.version ?? "unknown",
-        apiToken: config.apiToken,
         syncTarget: config.syncTarget,
         syncInterval: config.syncInterval,
       }),
