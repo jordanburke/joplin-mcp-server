@@ -32,6 +32,9 @@ export type SidecarConfig = {
   apiToken: string
   syncTarget?: SyncTarget
   syncInterval?: number
+  // Identifies the release that spawned a sidecar. A running server started by a
+  // different version is replaced rather than reused, so upgrades take effect.
+  version?: string
 }
 
 export type SidecarError = {
@@ -79,7 +82,13 @@ const fetchWithTimeout = async (url: string, timeoutMs: number = 5_000): Promise
 }
 
 type PortProbeResult =
-  "free" | "joplin_ours" | "joplin_foreign" | "joplin_unowned" | "occupied_other" | "occupied_unresponsive"
+  | "free"
+  | "joplin_ours"
+  | "joplin_stale"
+  | "joplin_foreign"
+  | "joplin_unowned"
+  | "occupied_other"
+  | "occupied_unresponsive"
 
 const CLIPPER_PID_FILE = "clipper-pid.txt"
 
@@ -111,6 +120,60 @@ const servesOurProfile = (profileDir: string): boolean =>
     (pid) => isProcessAlive(pid),
   )
 
+const SIDECAR_STAMP_FILE = ".mcp-sidecar.json"
+
+export type SidecarStamp = {
+  version: string
+  identity: string
+}
+
+// Identity of the data a sidecar serves and how it serves it. Deliberately excludes
+// the port, which is resolved dynamically and says nothing about the running server.
+const computeIdentityHash = (config: SidecarConfig): string =>
+  crypto
+    .createHash("sha256")
+    .update(
+      JSON.stringify({
+        version: config.version ?? "unknown",
+        apiToken: config.apiToken,
+        syncTarget: config.syncTarget,
+        syncInterval: config.syncInterval,
+      }),
+    )
+    .digest("hex")
+    .slice(0, 16)
+
+const readSidecarStamp = (profileDir: string): Option<SidecarStamp> => {
+  try {
+    const raw: unknown = JSON.parse(fs.readFileSync(join(profileDir, SIDECAR_STAMP_FILE), "utf-8"))
+    const stamp = raw as Partial<SidecarStamp>
+    if (typeof stamp.version !== "string" || typeof stamp.identity !== "string") return Option.none()
+    return Option({ version: stamp.version, identity: stamp.identity })
+  } catch {
+    return Option.none()
+  }
+}
+
+const writeSidecarStamp = (profileDir: string, stamp: SidecarStamp): void => {
+  try {
+    fs.writeFileSync(join(profileDir, SIDECAR_STAMP_FILE), JSON.stringify(stamp))
+  } catch {
+    // Non-critical — worst case the next start replaces a reusable server
+  }
+}
+
+export type ReuseVerdict = "reusable" | "stale" | "not-ours"
+
+// Decides whether a Joplin server already serving our profile can be adopted.
+// An unstamped server predates stamping, so it is replaced rather than trusted.
+const inspectRunningSidecar = (profileDir: string, identity: string): ReuseVerdict => {
+  if (!servesOurProfile(profileDir)) return "not-ours"
+  return readSidecarStamp(profileDir).fold(
+    () => "stale",
+    (stamp) => (stamp.identity === identity ? "reusable" : "stale"),
+  )
+}
+
 const isConnectionRefused = (err: unknown): boolean => {
   const e = err as { cause?: { code?: string; errors?: Array<{ code?: string }> } }
   if (e.cause?.code === "ECONNREFUSED") return true
@@ -118,7 +181,12 @@ const isConnectionRefused = (err: unknown): boolean => {
   return false
 }
 
-const probePort = async (port: number, token: string, profileDir: string): Promise<PortProbeResult> => {
+const probePort = async (
+  port: number,
+  token: string,
+  profileDir: string,
+  identity: string,
+): Promise<PortProbeResult> => {
   try {
     const pingResponse = await fetchWithTimeout(`http://127.0.0.1:${port}/ping`, 3_000)
     const body = await pingResponse.text()
@@ -131,8 +199,14 @@ const probePort = async (port: number, token: string, profileDir: string): Promi
         3_000,
       )
       // Accepting our token is not enough: an orphan serving a different profile
-      // answers identically but exposes the wrong (often empty) database.
-      if (authResponse.ok) return servesOurProfile(profileDir) ? "joplin_ours" : "joplin_unowned"
+      // answers identically but exposes the wrong (often empty) database, and a
+      // server left by an older release serves the old code until it is replaced.
+      if (authResponse.ok) {
+        return Match(inspectRunningSidecar(profileDir, identity))
+          .case("reusable", () => "joplin_ours" as const)
+          .case("stale", () => "joplin_stale" as const)
+          .default(() => "joplin_unowned" as const)
+      }
       return "joplin_foreign"
     } catch {
       return "joplin_foreign"
@@ -147,15 +221,22 @@ const probePort = async (port: number, token: string, profileDir: string): Promi
 
 type PortResolution =
   | { outcome: "reuse_existing"; port: number; desktopDetected: boolean }
+  | { outcome: "replace_stale"; port: number; desktopDetected: boolean }
   | { outcome: "free"; port: number; desktopDetected: boolean }
   | { outcome: "exhausted" }
 
-const resolveAvailablePort = async (startPort: number, token: string, profileDir: string): Promise<PortResolution> => {
+const resolveAvailablePort = async (
+  startPort: number,
+  token: string,
+  profileDir: string,
+  identity: string,
+): Promise<PortResolution> => {
   const tryPort = async (port: number, desktopDetected: boolean): Promise<PortResolution> => {
     if (port >= startPort + MAX_PORT_ATTEMPTS) return { outcome: "exhausted" }
-    const status = await probePort(port, token, profileDir)
+    const status = await probePort(port, token, profileDir, identity)
     if (status === "free") return { outcome: "free", port, desktopDetected }
     if (status === "joplin_ours") return { outcome: "reuse_existing", port, desktopDetected }
+    if (status === "joplin_stale") return { outcome: "replace_stale", port, desktopDetected }
     if (status === "joplin_unowned") {
       process.stderr.write(
         `[joplin-sidecar] Port ${port}: Joplin server accepts our token but serves a different profile ` +
@@ -403,7 +484,8 @@ const writeConfigCache = (profileDir: string, hash: string): void => {
   }
 }
 
-export { isProcessAlive, readProfileServerPid, servesOurProfile }
+export { computeIdentityHash, inspectRunningSidecar, isProcessAlive, readProfileServerPid, readSidecarStamp }
+export { servesOurProfile, writeSidecarStamp }
 
 export class JoplinSidecar {
   private config: SidecarConfig
@@ -419,7 +501,51 @@ export class JoplinSidecar {
       apiToken: config.apiToken,
       syncTarget: config.syncTarget,
       syncInterval: config.syncInterval,
+      version: config.version,
     }
+  }
+
+  private identity(): string {
+    return computeIdentityHash(this.config)
+  }
+
+  // True while a Joplin server is serving our profile — whether we spawned it or
+  // adopted one already running.
+  private sidecarAlive(): boolean {
+    return servesOurProfile(this.config.profileDir)
+  }
+
+  // A server left by a different release or a changed sync configuration is torn
+  // down so the current one can take the port. This is how upgrades roll over: a
+  // new version never adopts the previous version's running server.
+  private async replaceStaleServer(port: number): Promise<void> {
+    const previous = readSidecarStamp(this.config.profileDir).fold(
+      () => "unstamped",
+      (s) => `v${s.version}`,
+    )
+    process.stderr.write(
+      `[joplin-sidecar] Replacing sidecar on port ${port} (${previous} -> v${this.config.version ?? "unknown"} ` +
+        `or changed sync config)\n`,
+    )
+    this.reapRecordedServer()
+    await this.waitForPortFree(port)
+  }
+
+  private async waitForPortFree(port: number, maxAttempts: number = 20): Promise<void> {
+    const attempt = async (i: number): Promise<void> => {
+      if (i >= maxAttempts) {
+        process.stderr.write(`[joplin-sidecar] Port ${port} still busy after teardown, continuing anyway\n`)
+        return
+      }
+      try {
+        await fetchWithTimeout(`http://127.0.0.1:${port}/ping`, 1_000)
+      } catch (err: unknown) {
+        if (isConnectionRefused(err)) return
+      }
+      await new Promise((resolve) => setTimeout(resolve, 250))
+      return attempt(i + 1)
+    }
+    return attempt(0)
   }
 
   // Best-effort synchronous teardown. Only sync work is possible from an "exit"
@@ -470,7 +596,12 @@ export class JoplinSidecar {
   }
 
   async resolvePort(): Promise<Either<SidecarError, number>> {
-    const resolution = await resolveAvailablePort(this.config.apiPort, this.config.apiToken, this.config.profileDir)
+    const resolution = await resolveAvailablePort(
+      this.config.apiPort,
+      this.config.apiToken,
+      this.config.profileDir,
+      this.identity(),
+    )
     this.portResolution = resolution
     if (resolution.outcome === "exhausted") {
       const lastPort = this.config.apiPort + MAX_PORT_ATTEMPTS - 1
@@ -496,6 +627,15 @@ export class JoplinSidecar {
   }
 
   async start(): Promise<Either<SidecarError, ChildProcess>> {
+    // A shared sidecar can die while we are still running — most often because the
+    // process that spawned it exited. Drop a settled start so the next call really
+    // restarts instead of replaying an earlier success against a dead server.
+    if (this.startPromise && !this.sidecarAlive()) {
+      process.stderr.write("[joplin-sidecar] Sidecar is no longer running, restarting\n")
+      this.startPromise = null
+      this.childProcess = null
+      this.portResolution = null
+    }
     if (this.startPromise) return this.startPromise
     this.startPromise = this.doStart()
     return this.startPromise
@@ -531,12 +671,19 @@ export class JoplinSidecar {
       }
     }
 
-    // Step 3: If we found an existing instance with our token, reuse it
+    // Step 3: Adopt a healthy server serving our profile, so several MCP processes
+    // share one sidecar rather than each spawning its own.
     if (this.portResolution?.outcome === "reuse_existing") {
       process.stderr.write(
-        `[joplin-sidecar] Existing Joplin server with matching token on port ${this.config.apiPort}, reusing\n`,
+        `[joplin-sidecar] Existing Joplin server for this profile on port ${this.config.apiPort}, reusing\n`,
       )
       return Right(this.childProcess ?? (null as unknown as ChildProcess))
+    }
+
+    // Step 3b: A server from a previous release or a changed sync config holds the
+    // port. Tear it down first so this version's sidecar replaces it.
+    if (this.portResolution?.outcome === "replace_stale") {
+      await this.replaceStaleServer(this.config.apiPort)
     }
 
     // Step 4: Configure via CLI (skip if config is cached)
@@ -591,6 +738,13 @@ export class JoplinSidecar {
         ),
       )
     }
+
+    // Step 7: Stamp the profile so other processes can tell whether this running
+    // server matches their release and sync configuration.
+    writeSidecarStamp(this.config.profileDir, {
+      version: this.config.version ?? "unknown",
+      identity: this.identity(),
+    })
 
     return Right(this.childProcess!)
   }

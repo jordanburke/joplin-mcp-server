@@ -2,7 +2,16 @@ import fs from "fs"
 import os from "os"
 import { join } from "path"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
-import { isProcessAlive, readProfileServerPid, servesOurProfile } from "../../src/lib/joplin-sidecar.js"
+import type { SidecarConfig } from "../../src/lib/joplin-sidecar.js"
+import {
+  computeIdentityHash,
+  inspectRunningSidecar,
+  isProcessAlive,
+  readProfileServerPid,
+  readSidecarStamp,
+  servesOurProfile,
+  writeSidecarStamp,
+} from "../../src/lib/joplin-sidecar.js"
 
 // A PID far above any realistic allocation, used to represent a dead process.
 const DEAD_PID = 4_194_303
@@ -70,6 +79,87 @@ describe("sidecar profile ownership", () => {
     it("is true when the recorded server is still running", () => {
       writePid(String(process.pid))
       expect(servesOurProfile(profileDir)).toBe(true)
+    })
+  })
+
+  describe("computeIdentityHash", () => {
+    const base: SidecarConfig = {
+      profileDir: "/tmp/example",
+      apiPort: 41184,
+      apiToken: "mcp-token",
+      syncTarget: { type: "filesystem", path: "/data/joplin" },
+      syncInterval: 300,
+      version: "2.1.1",
+    }
+
+    it("is stable for an unchanged configuration", () => {
+      expect(computeIdentityHash(base)).toBe(computeIdentityHash({ ...base }))
+    })
+
+    // The upgrade path: a new release must not adopt the previous release's server.
+    it("changes when the version changes", () => {
+      expect(computeIdentityHash({ ...base, version: "2.2.0" })).not.toBe(computeIdentityHash(base))
+    })
+
+    it("changes when the sync target changes", () => {
+      const moved: SidecarConfig = { ...base, syncTarget: { type: "filesystem", path: "/data/elsewhere" } }
+      expect(computeIdentityHash(moved)).not.toBe(computeIdentityHash(base))
+    })
+
+    it("changes when the token changes", () => {
+      expect(computeIdentityHash({ ...base, apiToken: "mcp-other" })).not.toBe(computeIdentityHash(base))
+    })
+
+    // The port is resolved dynamically and says nothing about what the server serves,
+    // so it must not fragment identity between otherwise-identical processes.
+    it("ignores the api port", () => {
+      expect(computeIdentityHash({ ...base, apiPort: 41190 })).toBe(computeIdentityHash(base))
+    })
+  })
+
+  describe("readSidecarStamp", () => {
+    it("returns none when nothing has been stamped", () => {
+      expect(readSidecarStamp(profileDir).isEmpty).toBe(true)
+    })
+
+    it("returns none for a malformed stamp", () => {
+      fs.writeFileSync(join(profileDir, ".mcp-sidecar.json"), '{"version":2}')
+      expect(readSidecarStamp(profileDir).isEmpty).toBe(true)
+    })
+
+    it("round-trips a written stamp", () => {
+      writeSidecarStamp(profileDir, { version: "2.1.1", identity: "abc123" })
+      const stamp = readSidecarStamp(profileDir).fold(
+        () => null,
+        (v) => v,
+      )
+      expect(stamp).toEqual({ version: "2.1.1", identity: "abc123" })
+    })
+  })
+
+  describe("inspectRunningSidecar", () => {
+    it("reports not-ours when no live server holds the profile", () => {
+      writePid(String(DEAD_PID))
+      writeSidecarStamp(profileDir, { version: "2.1.1", identity: "abc123" })
+      expect(inspectRunningSidecar(profileDir, "abc123")).toBe("not-ours")
+    })
+
+    // Servers predating stamping cannot be vouched for, so they get replaced.
+    it("reports stale when a live server left no stamp", () => {
+      writePid(String(process.pid))
+      expect(inspectRunningSidecar(profileDir, "abc123")).toBe("stale")
+    })
+
+    it("reports stale when the running server has a different identity", () => {
+      writePid(String(process.pid))
+      writeSidecarStamp(profileDir, { version: "2.0.0", identity: "old-identity" })
+      expect(inspectRunningSidecar(profileDir, "abc123")).toBe("stale")
+    })
+
+    it("reports reusable when identity matches a live server", () => {
+      writePid(String(process.pid))
+      writeSidecarStamp(profileDir, { version: "2.1.1", identity: "abc123" })
+      expect(inspectRunningSidecar(profileDir, "abc123")).toBe("reusable")
     })
   })
 })

@@ -77,6 +77,7 @@ async function setupConnection(): Promise<{ host: string; port: number; sidecar:
     apiPort: DEFAULT_API_PORT,
     apiToken: joplinToken,
     syncTarget: syncTarget.orUndefined() as SyncTarget | undefined,
+    version: __VERSION__,
   })
 
   // Phase 1: Resolve port (fast — a few HTTP probes).
