@@ -7,6 +7,7 @@ import {
   computeIdentityHash,
   inspectRunningSidecar,
   isProcessAlive,
+  localCliCandidates,
   readProfileServerPid,
   readSidecarStamp,
   servesOurProfile,
@@ -15,6 +16,8 @@ import {
 
 // A PID far above any realistic allocation, used to represent a dead process.
 const DEAD_PID = 4_194_303
+
+const CLI_BIN_NAME = process.platform === "win32" ? "joplin.cmd" : "joplin"
 
 describe("sidecar profile ownership", () => {
   let profileDir: string
@@ -160,6 +163,31 @@ describe("sidecar profile ownership", () => {
       writePid(String(process.pid))
       writeSidecarStamp(profileDir, { version: "2.1.1", identity: "abc123" })
       expect(inspectRunningSidecar(profileDir, "abc123")).toBe("reusable")
+    })
+  })
+
+  describe("localCliCandidates", () => {
+    it("looks for the CLI in node_modules/.bin", () => {
+      const suffix = join("node_modules", ".bin")
+      expect(localCliCandidates().every((p) => p.includes(suffix))).toBe(true)
+    })
+
+    // The packaged-install failure: the host application sets the working
+    // directory, so a cwd-relative lookup finds nothing and the sidecar silently
+    // falls back to downloading the CLI through npx.
+    it("finds the bundled CLI when the working directory is elsewhere", () => {
+      const original = process.cwd()
+      try {
+        process.chdir(os.tmpdir())
+        const found = localCliCandidates().filter((p) => fs.existsSync(p))
+        expect(found.length).toBeGreaterThan(0)
+      } finally {
+        process.chdir(original)
+      }
+    })
+
+    it("still searches the working directory for local development", () => {
+      expect(localCliCandidates()).toContain(join(process.cwd(), "node_modules", ".bin", CLI_BIN_NAME))
     })
   })
 })

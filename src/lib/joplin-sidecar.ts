@@ -3,7 +3,8 @@ import crypto from "crypto"
 import fs from "fs"
 import { Either, Left, Match, Option, Right } from "functype"
 import { Platform } from "functype-os"
-import { join } from "path"
+import { dirname, join } from "path"
+import { fileURLToPath } from "url"
 import { promisify } from "util"
 
 const execAsync = promisify(exec)
@@ -257,6 +258,24 @@ const resolveAvailablePort = async (
   return tryPort(startPort, false)
 }
 
+const CLI_BIN_NAME = isWindows ? "joplin.cmd" : "joplin"
+const CLI_SEARCH_DEPTH = 5
+
+// Where a bundled Joplin CLI might live, nearest first. Resolution has to be
+// module-relative: under a packaged install the working directory belongs to the
+// host application, so process.cwd() finds nothing. It stays in the list last so
+// a plain `pnpm dev` from the repo root keeps working.
+const ancestorDirs = (dir: string, remaining: number): string[] => {
+  const parent = dirname(dir)
+  if (remaining <= 0 || parent === dir) return [dir]
+  return [dir, ...ancestorDirs(parent, remaining - 1)]
+}
+
+const localCliCandidates = (): string[] =>
+  [...ancestorDirs(dirname(fileURLToPath(import.meta.url)), CLI_SEARCH_DEPTH), process.cwd()].map((root) =>
+    join(root, "node_modules", ".bin", CLI_BIN_NAME),
+  )
+
 const findJoplinCli = async (): Promise<Either<SidecarError, string>> => {
   // 1. User override via env var
   const envCli = process.env.JOPLIN_CLI
@@ -265,9 +284,9 @@ const findJoplinCli = async (): Promise<Either<SidecarError, string>> => {
     return Left(sidecarError("CLI_NOT_FOUND", `JOPLIN_CLI path not found: ${envCli}`))
   }
 
-  // 2. Bundled in node_modules (if joplin is a dependency)
-  const localBin = join(process.cwd(), "node_modules", ".bin", isWindows ? "joplin.cmd" : "joplin")
-  if (fs.existsSync(localBin)) return Right(localBin)
+  // 2. Bundled in node_modules, resolved relative to this module
+  const bundled = localCliCandidates().find((candidate) => fs.existsSync(candidate))
+  if (bundled) return Right(bundled)
 
   // 3. Global install
   try {
@@ -484,8 +503,8 @@ const writeConfigCache = (profileDir: string, hash: string): void => {
   }
 }
 
-export { computeIdentityHash, inspectRunningSidecar, isProcessAlive, readProfileServerPid, readSidecarStamp }
-export { servesOurProfile, writeSidecarStamp }
+export { computeIdentityHash, inspectRunningSidecar, isProcessAlive, localCliCandidates, readProfileServerPid }
+export { readSidecarStamp, servesOurProfile, writeSidecarStamp }
 
 export class JoplinSidecar {
   private config: SidecarConfig
