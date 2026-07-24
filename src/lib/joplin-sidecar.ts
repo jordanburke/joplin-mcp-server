@@ -368,6 +368,32 @@ const runJoplinConfig = async (cli: string, profileDir: string, key: string, val
   await execFileAsync(cmd, args, { encoding: "utf-8", timeout: 30_000, shell: isWindows })
 }
 
+// Runs `joplin sync` and returns its captured stdout. The caller must ensure no
+// server is holding the profile (Joplin forbids two instances on one profile).
+const runJoplinSync = async (cli: string, profileDir: string): Promise<string> => {
+  const cmd = cli.endsWith("npx") ? "npx" : cli
+  // --profile must precede the subcommand (see runJoplinConfig).
+  const args = cli.endsWith("npx") ? ["joplin", "--profile", profileDir, "sync"] : ["--profile", profileDir, "sync"]
+  const { stdout } = await execFileAsync(cmd, args, {
+    encoding: "utf-8",
+    timeout: 300_000,
+    shell: isWindows,
+  })
+  return stdout
+}
+
+// Condense Joplin's multi-line sync output to the last meaningful status line,
+// which carries the item counts and duration (e.g. "Created local items: 813...").
+export const summarizeSyncOutput = (stdout: string): string => {
+  const lines = stdout
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0)
+  const completed = lines.filter((l) => l.startsWith("Created") || l.startsWith("Fetched") || l.includes("Completed"))
+  const chosen = completed.length > 0 ? completed[completed.length - 1] : lines[lines.length - 1]
+  return chosen ?? "Sync completed."
+}
+
 const configureJoplin = async (cli: string, config: SidecarConfig): Promise<Either<SidecarError, void>> => {
   const settings = buildSettingsRecord(config)
   try {
@@ -801,6 +827,77 @@ export class JoplinSidecar {
     } catch (error) {
       return Left(error instanceof Error ? error : new Error(String(error)))
     }
+  }
+
+  // Release exclusive access to the profile so `joplin sync` can run: Joplin
+  // forbids two instances on one profile. Reaps the recorded server whether we
+  // spawned it or merely adopted a shared one, and resets state so the next
+  // start() performs a full restart.
+  private async releaseProfile(): Promise<void> {
+    this.startPromise = null
+    this.portResolution = null
+    if (this.childProcess) {
+      const proc = this.childProcess
+      try {
+        proc.kill("SIGTERM")
+        await new Promise<void>((resolve) => {
+          const timeout = setTimeout(() => {
+            proc.kill("SIGKILL")
+            resolve()
+          }, 5000)
+          proc.on("exit", () => {
+            clearTimeout(timeout)
+            resolve()
+          })
+        })
+      } catch {
+        // already gone
+      }
+      this.childProcess = null
+    }
+    this.reapRecordedServer()
+    await this.waitForPortFree(this.config.apiPort)
+  }
+
+  // Triggers a real sync. The clipper server does not sync on its own, so this
+  // stops the server, runs `joplin sync`, then restarts it. Brief downtime (the
+  // sync duration) during which tool calls will re-establish the server.
+  async sync(): Promise<Either<SidecarError, string>> {
+    const cliResult = await findJoplinCli()
+    if (Either.isLeft(cliResult)) {
+      return Left(
+        cliResult.fold(
+          (e) => e,
+          () => null as never,
+        ),
+      )
+    }
+    const cli = cliResult.fold(
+      () => "",
+      (v) => v,
+    )
+
+    await this.releaseProfile()
+
+    const syncResult = await (async (): Promise<Either<SidecarError, string>> => {
+      try {
+        return Right(summarizeSyncOutput(await runJoplinSync(cli, this.config.profileDir)))
+      } catch (e) {
+        return Left(sidecarError("SYNC_FAILED", "joplin sync failed", e))
+      }
+    })()
+
+    // Bring the server back regardless of whether the sync succeeded.
+    const restart = await this.start()
+    if (Either.isRight(syncResult) && Either.isLeft(restart)) {
+      return Left(
+        restart.fold(
+          (e) => sidecarError("SYNC_FAILED", `Sync completed but the server failed to restart: ${e.message}`, e),
+          () => null as never,
+        ),
+      )
+    }
+    return syncResult
   }
 
   async healthCheck(): Promise<Either<Error, true>> {

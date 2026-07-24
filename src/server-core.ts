@@ -189,18 +189,28 @@ export class JoplinServerManager {
       ? "\n\nNote: Joplin Desktop is also running. The sidecar and Desktop use separate databases. " +
         "Notes sync between them only if both are configured with the same sync target."
       : ""
-    // Try triggering sync via the Joplin REST API (POST /services/sync)
+
+    // Sidecar mode: the clipper server does not sync on its own, so drive a real
+    // sync through the CLI (stop server, sync, restart).
+    if (this.config.sidecar) {
+      const result = await this.config.sidecar.sync()
+      // Re-validate the connection after the stop/restart. The restart reclaims the
+      // same freed port, so the existing client keeps working.
+      this.connected = false
+      await this.ensureConnected()
+      return result.fold(
+        (error) => `Sync failed: ${error.message}${desktopWarning}`,
+        (summary) => `Sync complete. ${summary}${desktopWarning}`,
+      )
+    }
+
+    // External mode (connected to e.g. Joplin Desktop): trigger via the REST API.
     const result = await this.apiClient.post<Record<string, unknown>>("/services/sync", { action: "start" })
     return result.fold(
       (error) => {
         const msg = error.message || String(error)
-        // 404 or "No action API" = Joplin instance doesn't expose sync as a REST service
-        // This is normal for Joplin Terminal CLI — it auto-syncs on its configured interval
         if (msg.includes("404") || msg.includes("No action API") || msg.includes("No such service")) {
-          return (
-            `Sync is managed automatically by the Joplin server on its configured interval ` +
-            `(default: every 5 minutes). On-demand sync is not available via the Joplin Terminal API.${desktopWarning}`
-          )
+          return `On-demand sync is not available on this Joplin instance.${desktopWarning}`
         }
         return `Sync failed: ${msg}${desktopWarning}`
       },
