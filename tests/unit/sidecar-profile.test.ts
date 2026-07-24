@@ -9,6 +9,7 @@ import {
   isProcessAlive,
   localCliCandidates,
   readProfileServerPid,
+  summarizeSyncOutput,
   readSidecarStamp,
   servesOurProfile,
   writeSidecarStamp,
@@ -191,6 +192,32 @@ describe("sidecar profile ownership", () => {
 
     it("still searches the working directory for local development", () => {
       expect(localCliCandidates()).toContain(join(process.cwd(), "node_modules", ".bin", CLI_BIN_NAME))
+    })
+  })
+
+  describe("summarizeSyncOutput", () => {
+    it("picks the final item-count line from real joplin output", () => {
+      const out = [
+        "Synchronisation target:  (2)",
+        "Starting synchronisation...",
+        "Fetched items: 1/50.",
+        "Downloading resources...",
+        "Created local items: 813. Fetched items: 813/813. Completed: 23/07/2026 22:06 (3s)",
+      ].join("\n")
+      expect(summarizeSyncOutput(out)).toContain("Created local items: 813")
+    })
+
+    it("prefers a Completed line when present", () => {
+      const out = "Starting synchronisation...\nCompleted: 23/07/2026 22:06 (0s)"
+      expect(summarizeSyncOutput(out)).toContain("Completed")
+    })
+
+    it("falls back to the last non-empty line when no count line exists", () => {
+      expect(summarizeSyncOutput("Starting synchronisation...\nNothing to sync\n\n")).toBe("Nothing to sync")
+    })
+
+    it("returns a default for empty output", () => {
+      expect(summarizeSyncOutput("   \n  \n")).toBe("Sync completed.")
     })
   })
 })
