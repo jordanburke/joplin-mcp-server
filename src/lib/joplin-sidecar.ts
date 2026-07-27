@@ -275,10 +275,29 @@ const ancestorDirs = (dir: string, remaining: number): string[] => {
   return [dir, ...ancestorDirs(parent, remaining - 1)]
 }
 
-const localCliCandidates = (): string[] =>
-  [...ancestorDirs(dirname(fileURLToPath(import.meta.url)), CLI_SEARCH_DEPTH), process.cwd()].map((root) =>
+// Candidate CLI locations, nearest first, two forms per root:
+//   node_modules/.bin/joplin     — a normal install (a symlink/shim)
+//   node_modules/joplin/main.js  — the package's own entry, used when .bin symlinks
+//                                  were stripped (e.g. inside a packed .mcpb bundle)
+const localCliCandidates = (): string[] => {
+  const roots = [...ancestorDirs(dirname(fileURLToPath(import.meta.url)), CLI_SEARCH_DEPTH), process.cwd()]
+  return roots.flatMap((root) => [
     join(root, "node_modules", ".bin", CLI_BIN_NAME),
-  )
+    join(root, "node_modules", "joplin", "main.js"),
+  ])
+}
+
+// How to invoke a resolved Joplin CLI. Three shapes:
+//   *.js  → `node <entry> <args>`  (package main, e.g. from a packed bundle; run via
+//           the current Node binary since PATH is not guaranteed in a host sandbox)
+//   npx   → `npx joplin <args>`    (last-resort fallback that may download)
+//   else  → `<cli> <args>`         (a .bin shim / executable)
+// shell is only needed for npx/.cmd on Windows.
+const joplinInvocation = (cli: string, subArgs: string[]): { cmd: string; args: string[]; shell: boolean } => {
+  if (cli.endsWith(".js")) return { cmd: process.execPath, args: [cli, ...subArgs], shell: false }
+  if (cli.endsWith("npx")) return { cmd: "npx", args: ["joplin", ...subArgs], shell: isWindows }
+  return { cmd: cli, args: subArgs, shell: isWindows }
+}
 
 const findJoplinCli = async (): Promise<Either<SidecarError, string>> => {
   // 1. User override via env var
@@ -359,26 +378,18 @@ const buildSettingsRecord = (config: SidecarConfig): Record<string, string> => {
 }
 
 const runJoplinConfig = async (cli: string, profileDir: string, key: string, value: string): Promise<void> => {
-  const cmd = cli.endsWith("npx") ? "npx" : cli
   // --profile is a global flag: it must precede the subcommand or the CLI
   // silently ignores it and falls back to the default ~/.config/joplin profile.
-  const args = cli.endsWith("npx")
-    ? ["joplin", "--profile", profileDir, "config", key, value]
-    : ["--profile", profileDir, "config", key, value]
-  await execFileAsync(cmd, args, { encoding: "utf-8", timeout: 30_000, shell: isWindows })
+  const { cmd, args, shell } = joplinInvocation(cli, ["--profile", profileDir, "config", key, value])
+  await execFileAsync(cmd, args, { encoding: "utf-8", timeout: 30_000, shell })
 }
 
 // Runs `joplin sync` and returns its captured stdout. The caller must ensure no
 // server is holding the profile (Joplin forbids two instances on one profile).
 const runJoplinSync = async (cli: string, profileDir: string): Promise<string> => {
-  const cmd = cli.endsWith("npx") ? "npx" : cli
   // --profile must precede the subcommand (see runJoplinConfig).
-  const args = cli.endsWith("npx") ? ["joplin", "--profile", profileDir, "sync"] : ["--profile", profileDir, "sync"]
-  const { stdout } = await execFileAsync(cmd, args, {
-    encoding: "utf-8",
-    timeout: 300_000,
-    shell: isWindows,
-  })
+  const { cmd, args, shell } = joplinInvocation(cli, ["--profile", profileDir, "sync"])
+  const { stdout } = await execFileAsync(cmd, args, { encoding: "utf-8", timeout: 300_000, shell })
   return stdout
 }
 
@@ -409,16 +420,13 @@ const configureJoplin = async (cli: string, config: SidecarConfig): Promise<Eith
 
 const spawnServer = (cli: string, config: SidecarConfig): Either<SidecarError, ChildProcess> => {
   try {
-    const cmd = cli.endsWith("npx") ? "npx" : cli
     // --profile must precede the subcommand (see runJoplinConfig).
-    const args = cli.endsWith("npx")
-      ? ["joplin", "--profile", config.profileDir, "server", "start"]
-      : ["--profile", config.profileDir, "server", "start"]
+    const { cmd, args, shell } = joplinInvocation(cli, ["--profile", config.profileDir, "server", "start"])
 
     const proc = spawn(cmd, args, {
       stdio: ["ignore", "pipe", "pipe"],
       detached: false,
-      shell: isWindows,
+      shell,
     })
 
     proc.stderr.on("data", (data: Buffer) => {

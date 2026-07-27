@@ -1,0 +1,111 @@
+{
+  "manifest_version": "0.4",
+  "name": "joplin-mcp-server",
+  "display_name": "Joplin",
+  "version": "2.2.2",
+  "description": "Search, read, create, and edit Joplin notes and notebooks over the Model Context Protocol.",
+  "long_description": "An MCP server for the [Joplin](https://joplinapp.org) note-taking app. It runs a self-managed Joplin sidecar (a headless Joplin terminal instance) against a sync target you already use \u2014 no separate Joplin app needs to be running. Provides tools to list notebooks, search notes, read/create/edit/delete notes and folders, and trigger an on-demand sync.\n\nBy default it syncs from a **filesystem** target (a folder that Joplin Desktop/mobile already syncs to). Point `Sync path` at that folder and the server pulls your notes into its own profile.",
+  "author": {
+    "name": "Jordan Burke",
+    "email": "jordan.burke@gmail.com",
+    "url": "https://github.com/jordanburke"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jordanburke/joplin-mcp-server.git"
+  },
+  "homepage": "https://github.com/jordanburke/joplin-mcp-server#readme",
+  "documentation": "https://github.com/jordanburke/joplin-mcp-server#readme",
+  "support": "https://github.com/jordanburke/joplin-mcp-server/issues",
+  "license": "MIT",
+  "keywords": ["joplin", "notes", "notebooks", "note-taking", "markdown"],
+  "server": {
+    "type": "node",
+    "entry_point": "server/bin.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/server/bin.js",
+        "--sync-target",
+        "filesystem",
+        "--sync-path",
+        "${user_config.sync_path}",
+        "--profile",
+        "${user_config.profile_dir}"
+      ]
+    }
+  },
+  "tools": [
+    {
+      "name": "list_notebooks",
+      "description": "Retrieve the complete notebook hierarchy"
+    },
+    {
+      "name": "search_notes",
+      "description": "Search notes and return matching notebooks"
+    },
+    {
+      "name": "read_notebook",
+      "description": "Read the notes in a notebook"
+    },
+    {
+      "name": "read_note",
+      "description": "Read a single note by id"
+    },
+    {
+      "name": "read_multinote",
+      "description": "Read multiple notes by id"
+    },
+    {
+      "name": "create_note",
+      "description": "Create a note"
+    },
+    {
+      "name": "create_folder",
+      "description": "Create a notebook (folder)"
+    },
+    {
+      "name": "edit_note",
+      "description": "Edit an existing note"
+    },
+    {
+      "name": "edit_folder",
+      "description": "Rename or move a notebook"
+    },
+    {
+      "name": "delete_note",
+      "description": "Delete a note"
+    },
+    {
+      "name": "delete_folder",
+      "description": "Delete a notebook"
+    },
+    {
+      "name": "sync",
+      "description": "Trigger an on-demand sync with the configured sync target"
+    }
+  ],
+  "tools_generated": false,
+  "user_config": {
+    "sync_path": {
+      "type": "directory",
+      "title": "Sync path",
+      "description": "The filesystem folder your Joplin already syncs to (Joplin: Configuration > Synchronisation > 'File system', Directory). The server reads your notes from here.",
+      "required": true
+    },
+    "profile_dir": {
+      "type": "directory",
+      "title": "Sidecar profile directory",
+      "description": "Where the server keeps its own headless Joplin profile. Leave the default unless you want to isolate this instance from other clients sharing the same profile.",
+      "default": "${HOME}/.config/joplin-mcp",
+      "required": false
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=0.10.0",
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=18.0.0"
+    }
+  }
+}
