@@ -22,3 +22,7 @@ coverage/
 **/.claude/settings.local.json
 
 .idea/
+
+# MCPB bundle build
+.mcpb-build/
+*.mcpb

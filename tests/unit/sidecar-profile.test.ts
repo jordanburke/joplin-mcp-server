@@ -171,9 +171,8 @@ describe("sidecar profile ownership", () => {
   })
 
   describe("localCliCandidates", () => {
-    it("looks for the CLI in node_modules/.bin", () => {
-      const suffix = join("node_modules", ".bin")
-      expect(localCliCandidates().every((p) => p.includes(suffix))).toBe(true)
+    it("looks under node_modules", () => {
+      expect(localCliCandidates().every((p) => p.includes(join("node_modules")))).toBe(true)
     })
 
     // The packaged-install failure: the host application sets the working
@@ -192,6 +191,12 @@ describe("sidecar profile ownership", () => {
 
     it("still searches the working directory for local development", () => {
       expect(localCliCandidates()).toContain(join(process.cwd(), "node_modules", ".bin", CLI_BIN_NAME))
+    })
+
+    // A packed .mcpb strips node_modules/.bin symlinks, so resolution must also
+    // target the joplin package's own entry (main.js), invoked via `node`.
+    it("includes the joplin package main entry as a fallback for stripped .bin", () => {
+      expect(localCliCandidates()).toContain(join(process.cwd(), "node_modules", "joplin", "main.js"))
     })
   })
 
