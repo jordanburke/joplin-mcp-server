@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 
+// Static import of a pure string module: safe before the arg handling below,
+// unlike ./index.js, which starts the server on import.
+import { helpText } from "./lib/help-text.js"
+
 // Version is injected at build time via tsdown.config.ts define
 declare const __VERSION__: string
 
@@ -15,23 +19,7 @@ if (args.includes("--version") || args.includes("-v")) {
 }
 
 if (args.includes("--help") || args.includes("-h")) {
-  console.log(`
-Joplin MCP Server v${__VERSION__}
-
-Usage: joplin-mcp-server [options]
-
-Options:
-  -v, --version        Show version number
-  -h, --help           Show help
-
-Environment Variables:
-  JOPLIN_TOKEN         API token for external mode; ignored in sidecar mode
-  JOPLIN_HOST          Connect to existing Joplin at this host (skips sidecar)
-  JOPLIN_PORT          Connect to existing Joplin on this port (skips sidecar)
-  JOPLIN_CLI           Path to joplin CLI binary (overrides auto-detection)
-
-For more information, visit: https://github.com/jordanburke/joplin-mcp-server
-`)
+  console.log(helpText(__VERSION__))
   process.exit(0)
 }
 

@@ -23,7 +23,15 @@ export type SyncTarget =
   | { type: "joplin-server"; url: string; email: string; password: string }
   | { type: "webdav"; url: string; username: string; password: string }
   | { type: "nextcloud"; url: string; username: string; password: string }
-  | { type: "s3"; bucket: string; region: string; accessKey: string; secretKey: string }
+  | {
+      type: "s3"
+      bucket: string
+      region: string
+      url: string
+      forcePathStyle: boolean
+      accessKey: string
+      secretKey: string
+    }
   | { type: "dropbox" }
   | { type: "onedrive" }
 
@@ -338,7 +346,7 @@ const findJoplinCli = async (): Promise<Either<SidecarError, string>> => {
   )
 }
 
-const buildSettingsRecord = (config: SidecarConfig): Record<string, string> => {
+export const buildSettingsRecord = (config: SidecarConfig): Record<string, string> => {
   const settings: Record<string, string> = {
     "api.token": config.apiToken,
     "api.port": String(config.apiPort),
@@ -358,8 +366,13 @@ const buildSettingsRecord = (config: SidecarConfig): Record<string, string> => {
     settings["sync.5.username"] = syncTarget.username
     settings["sync.5.password"] = syncTarget.password
   } else if (syncTarget.type === "s3") {
+    // Every sync.8.* key is written unconditionally, defaults included. `joplin
+    // config` never clears a key, so a conditional write would leave a stale
+    // endpoint behind when a user drops --sync-endpoint on a later run.
     settings["sync.8.path"] = syncTarget.bucket
     settings["sync.8.region"] = syncTarget.region
+    settings["sync.8.url"] = syncTarget.url
+    settings["sync.8.forcePathStyle"] = String(syncTarget.forcePathStyle)
     settings["sync.8.username"] = syncTarget.accessKey
     settings["sync.8.password"] = syncTarget.secretKey
   } else if (syncTarget.type === "joplin-server") {

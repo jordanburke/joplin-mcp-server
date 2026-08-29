@@ -3,6 +3,7 @@ import { Either, Left, Option, Right } from "functype"
 import { Path, Platform } from "functype-os"
 import { join, resolve } from "path"
 
+import { helpText } from "./help-text.js"
 import type { SyncTarget } from "./joplin-sidecar.js"
 
 export type ParsedArgs = {
@@ -69,11 +70,39 @@ const extractArg = (args: string[], flag: string): Option<string> => {
   return Option(value)
 }
 
+// Joplin's own S3 defaults, so an existing AWS setup keeps working when no
+// endpoint or region is supplied.
+const DEFAULT_S3_REGION = "us-east-1"
+const DEFAULT_S3_ENDPOINT = "https://s3.amazonaws.com/"
+
+const parseBooleanArg = (value: Option<string>, flag: string): Either<string, boolean> =>
+  value.fold<Either<string, boolean>>(
+    () => Right(false),
+    (raw) => {
+      const normalized = raw.trim().toLowerCase()
+      if (normalized === "true" || normalized === "1") return Right(true)
+      if (normalized === "false" || normalized === "0") return Right(false)
+      return Left(`${flag} must be true or false (got: ${raw})`)
+    },
+  )
+
+const isValidUrl = (value: string): boolean => {
+  try {
+    new URL(value)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export const buildSyncTarget = (args: {
   syncTarget: Option<string>
   syncPath: Option<string>
   syncUsername: Option<string>
   syncPassword: Option<string>
+  syncRegion: Option<string>
+  syncEndpoint: Option<string>
+  syncForcePathStyle: Option<string>
 }): Either<string, SyncTarget> => {
   const targetType = args.syncTarget.orElse("none")
 
@@ -139,19 +168,36 @@ export const buildSyncTarget = (args: {
           ),
       )
 
-    case "s3":
-      return args.syncPath.fold(
-        () => Left("--sync-path (bucket) required for s3 sync target"),
-        (bucket) =>
-          args.syncUsername.fold(
-            () => Left("--sync-username (access key) required for s3 sync target"),
-            (accessKey) =>
-              args.syncPassword.fold(
-                () => Left("--sync-password (secret key) required for s3 sync target"),
-                (secretKey) => Right({ type: "s3", bucket, region: "us-east-1", accessKey, secretKey } as SyncTarget),
-              ),
-          ),
+    case "s3": {
+      const region = args.syncRegion.orElse(DEFAULT_S3_REGION)
+      const url = args.syncEndpoint.orElse(DEFAULT_S3_ENDPOINT)
+
+      if (!isValidUrl(url)) return Left(`--sync-endpoint must be a valid URL (got: ${url})`)
+
+      return parseBooleanArg(args.syncForcePathStyle, "--sync-force-path-style").flatMap((forcePathStyle) =>
+        args.syncPath.fold<Either<string, SyncTarget>>(
+          () => Left("--sync-path (bucket) required for s3 sync target"),
+          (bucket) =>
+            args.syncUsername.fold<Either<string, SyncTarget>>(
+              () => Left("--sync-username (access key) required for s3 sync target"),
+              (accessKey) =>
+                args.syncPassword.fold<Either<string, SyncTarget>>(
+                  () => Left("--sync-password (secret key) required for s3 sync target"),
+                  (secretKey) =>
+                    Right({
+                      type: "s3",
+                      bucket,
+                      region,
+                      url,
+                      forcePathStyle,
+                      accessKey,
+                      secretKey,
+                    } as SyncTarget),
+                ),
+            ),
+        ),
       )
+    }
 
     case "dropbox":
       return Right({ type: "dropbox" } as SyncTarget)
@@ -241,14 +287,33 @@ function parseArgs(): ParsedArgs {
     .map(expandPath)
     .orElse(expandPath("~/.config/joplin-mcp"))
 
-  // Handle sync args
+  // Handle sync args. --sync-path stays unexpanded here: only the filesystem
+  // target is a real path. Expanding a WebDAV URL or an S3 bucket name would
+  // rewrite any $var it contains to the empty string.
   const syncTarget = extractArg(args, "--sync-target").or(Option(process.env.JOPLIN_SYNC_TARGET))
-  const syncPath = extractArg(args, "--sync-path").or(Option(process.env.JOPLIN_SYNC_PATH)).map(expandPath)
+  const syncPath = extractArg(args, "--sync-path").or(Option(process.env.JOPLIN_SYNC_PATH))
   const syncUsername = extractArg(args, "--sync-username").or(Option(process.env.JOPLIN_SYNC_USERNAME))
   const syncPassword = extractArg(args, "--sync-password").or(Option(process.env.JOPLIN_SYNC_PASSWORD))
+  const syncRegion = extractArg(args, "--sync-region").or(Option(process.env.JOPLIN_SYNC_REGION))
+  const syncEndpoint = extractArg(args, "--sync-endpoint").or(Option(process.env.JOPLIN_SYNC_ENDPOINT))
+  const syncForcePathStyle = extractArg(args, "--sync-force-path-style").or(
+    Option(process.env.JOPLIN_SYNC_FORCE_PATH_STYLE),
+  )
 
-  // Build and validate sync target
-  const syncResult = buildSyncTarget({ syncTarget, syncPath, syncUsername, syncPassword })
+  // Build and validate sync target, then expand the one field that is a path.
+  // expandPath touches the filesystem (WSL fallback), so it stays out of the
+  // pure buildSyncTarget.
+  const syncResult = buildSyncTarget({
+    syncTarget,
+    syncPath,
+    syncUsername,
+    syncPassword,
+    syncRegion,
+    syncEndpoint,
+    syncForcePathStyle,
+  }).map((target) =>
+    target.type === "filesystem" ? ({ ...target, path: expandPath(target.path) } as SyncTarget) : target,
+  )
   if (Either.isLeft(syncResult)) {
     const err = syncResult.fold(
       (e) => e,
@@ -266,75 +331,7 @@ function parseArgs(): ParsedArgs {
 
   // Handle --help
   if (args.includes("--help") || args.includes("-h")) {
-    process.stderr.write(`
-Joplin MCP Server (Sidecar Mode)
-
-USAGE:
-  joplin-mcp-server [OPTIONS]
-
-OPTIONS:
-  --env-file <file>          Load environment variables from file
-  --token <token>            Joplin API token
-  --transport <type>         Transport type: stdio (default) or http
-  --http-port <port>         HTTP server port (default: 3000, only with --transport http)
-  --profile <dir>            Joplin data directory (default: ~/.config/joplin-mcp)
-  --sync-target <type>       Sync target: none, filesystem, webdav, nextcloud,
-                             joplin-cloud, joplin-server, s3, dropbox, onedrive
-  --sync-path <url>          URL or path for sync target
-  --sync-username <user>     Username/email for sync
-  --sync-password <pass>     Password for sync
-  --help, -h                 Show this help message
-
-ENVIRONMENT VARIABLES:
-  JOPLIN_TOKEN               API token for external mode (JOPLIN_HOST/JOPLIN_PORT).
-                             Ignored in sidecar mode, which manages its own token.
-  JOPLIN_HOST                Connect to existing Joplin at this host (skips sidecar)
-  JOPLIN_PORT                Connect to existing Joplin on this port (skips sidecar)
-  JOPLIN_CLI                 Path to joplin CLI binary (overrides auto-detection)
-  JOPLIN_PROFILE             Joplin data directory
-  JOPLIN_SYNC_TARGET         Sync target type
-  JOPLIN_SYNC_PATH           Sync target URL/path
-  JOPLIN_SYNC_USERNAME       Sync username/email
-  JOPLIN_SYNC_PASSWORD       Sync password
-  LOG_LEVEL                  Log level: debug, info, warn, error (default: info)
-
-MODES:
-  Sidecar (default):
-    Spawns and manages its own Joplin Terminal process.
-    No Joplin desktop app or Web Clipper needed.
-    Uses an isolated profile at --profile path (default: ~/.config/joplin-mcp).
-
-  External (JOPLIN_HOST/JOPLIN_PORT set):
-    Connects directly to an existing Joplin instance.
-    Useful for WSL connecting to Windows Joplin desktop.
-
-EXAMPLES:
-  # Minimal - local notes, no sync
-  joplin-mcp-server --token my_token
-
-  # Joplin Cloud sync
-  joplin-mcp-server --token my_token \\
-    --sync-target joplin-cloud \\
-    --sync-username user@example.com --sync-password pass
-
-  # WebDAV sync
-  joplin-mcp-server --token my_token \\
-    --sync-target webdav \\
-    --sync-path https://dav.example.com/joplin \\
-    --sync-username user --sync-password pass
-
-  # Filesystem sync (Syncthing, NAS)
-  joplin-mcp-server --token my_token \\
-    --sync-target filesystem --sync-path /mnt/sync/joplin
-
-  # HTTP transport for web apps
-  joplin-mcp-server --token my_token --transport http --http-port 3000
-
-  # External mode - connect to existing Joplin (e.g. Windows desktop from WSL)
-  JOPLIN_HOST=172.x.x.x JOPLIN_PORT=41184 joplin-mcp-server --token my_token
-
-Find your Joplin token in: Tools > Options > Web Clipper
-`)
+    process.stderr.write(helpText())
     process.exit(0)
   }
 

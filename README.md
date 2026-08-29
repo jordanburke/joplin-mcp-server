@@ -54,18 +54,21 @@ JOPLIN_HOST=192.168.0.40 JOPLIN_PORT=41184 npx joplin-mcp-server --token your_to
 
 ### Environment Variables
 
-| Variable               | Description                                             | Default                |
-| ---------------------- | ------------------------------------------------------- | ---------------------- |
-| `JOPLIN_TOKEN`         | API token (required)                                    | --                     |
-| `JOPLIN_HOST`          | Connect to existing Joplin at this host (skips sidecar) | --                     |
-| `JOPLIN_PORT`          | Connect to existing Joplin on this port (skips sidecar) | --                     |
-| `JOPLIN_CLI`           | Path to joplin CLI binary (overrides auto-detection)    | --                     |
-| `JOPLIN_PROFILE`       | Joplin data directory for sidecar mode                  | `~/.config/joplin-mcp` |
-| `JOPLIN_SYNC_TARGET`   | Sync target type                                        | `none`                 |
-| `JOPLIN_SYNC_PATH`     | Sync target URL/path                                    | --                     |
-| `JOPLIN_SYNC_USERNAME` | Sync username/email                                     | --                     |
-| `JOPLIN_SYNC_PASSWORD` | Sync password                                           | --                     |
-| `LOG_LEVEL`            | Log level: debug, info, warn, error                     | `info`                 |
+| Variable                       | Description                                             | Default                |
+| ------------------------------ | ------------------------------------------------------- | ---------------------- |
+| `JOPLIN_TOKEN`                 | API token (required)                                    | --                     |
+| `JOPLIN_HOST`                  | Connect to existing Joplin at this host (skips sidecar) | --                     |
+| `JOPLIN_PORT`                  | Connect to existing Joplin on this port (skips sidecar) | --                     |
+| `JOPLIN_CLI`                   | Path to joplin CLI binary (overrides auto-detection)    | --                     |
+| `JOPLIN_PROFILE`               | Joplin data directory for sidecar mode                  | `~/.config/joplin-mcp` |
+| `JOPLIN_SYNC_TARGET`           | Sync target type                                        | `none`                 |
+| `JOPLIN_SYNC_PATH`             | Sync target URL/path                                    | --                     |
+| `JOPLIN_SYNC_USERNAME`         | Sync username/email                                     | --                     |
+| `JOPLIN_SYNC_PASSWORD`         | Sync password                                           | --                     |
+| `JOPLIN_SYNC_REGION`           | S3 region                                               | `us-east-1`            |
+| `JOPLIN_SYNC_ENDPOINT`         | S3 endpoint URL (for non-AWS providers)                 | AWS S3                 |
+| `JOPLIN_SYNC_FORCE_PATH_STYLE` | Use path-style S3 URLs (`true`/`false`)                 | `false`                |
+| `LOG_LEVEL`                    | Log level: debug, info, warn, error                     | `info`                 |
 
 ### Command Line Options
 
@@ -86,7 +89,7 @@ OPTIONS:
 
 ### Path Expansion
 
-The `--sync-path` and `--profile` options support `~` and environment variable expansion for cross-platform compatibility:
+The `--profile` option and the `--sync-path` of a `filesystem` sync target support `~` and environment variable expansion for cross-platform compatibility. Other targets take a URL or bucket name in `--sync-path`, so it is passed through untouched:
 
 ```bash
 # Tilde expands to home directory (Linux, macOS, Windows)
@@ -117,6 +120,29 @@ This works in MCP client configs (`.mcp.json`, Claude Desktop) where shell expan
 | `s3`            | `--sync-path <bucket>` `--sync-username <access-key>` `--sync-password <secret-key>` |
 | `dropbox`       | (OAuth flow)                                                                         |
 | `onedrive`      | (OAuth flow)                                                                         |
+
+#### S3-compatible providers
+
+The `s3` target defaults to AWS (`https://s3.amazonaws.com/`, region `us-east-1`). Point it at any
+S3-compatible provider with `--sync-region` and `--sync-endpoint`:
+
+```bash
+# Backblaze B2
+joplin-mcp-server --token my_token \
+  --sync-target s3 --sync-path my-bucket \
+  --sync-region us-west-004 \
+  --sync-endpoint https://s3.us-west-004.backblazeb2.com \
+  --sync-username <access-key> --sync-password <secret-key>
+
+# MinIO / self-hosted: path-style URLs are usually required
+joplin-mcp-server --token my_token \
+  --sync-target s3 --sync-path my-bucket \
+  --sync-endpoint https://minio.example.com \
+  --sync-force-path-style true \
+  --sync-username <access-key> --sync-password <secret-key>
+```
+
+Cloudflare R2 and Wasabi work the same way — set `--sync-endpoint` to the provider's S3 endpoint.
 
 ## MCP Client Configuration
 
