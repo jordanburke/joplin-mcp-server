@@ -54,7 +54,8 @@
     "test:manual:list-notebooks": "tsx tests/manual/list-notebooks.test.ts",
     "docker:build": "docker build -t joplin-mcp .",
     "docker:run": "docker run -e JOPLIN_TOKEN=$JOPLIN_TOKEN -p 3000:3000 joplin-mcp",
-    "build:mcpb": "pnpm build && node scripts/build-mcpb.mjs"
+    "build:mcpb": "pnpm build && node scripts/build-mcpb.mjs",
+    "check:package": "node scripts/check-package-contents.mjs"
   },
   "prettier": "ts-builds/prettier",
   "keywords": [

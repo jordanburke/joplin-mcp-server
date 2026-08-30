@@ -43,6 +43,11 @@ jobs:
           echo "Files to be published:"
           npm pack --dry-run
 
+      # Catches a file silently dropping out of package.json's "files" array,
+      # which shipped a 2.3.0 without manifest.json.
+      - name: Check nothing regressed against the published package
+        run: node scripts/check-package-contents.mjs
+
       - name: Publish to npm
         run: npm publish --provenance --access public
 

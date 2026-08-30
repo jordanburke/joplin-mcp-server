@@ -35,3 +35,8 @@ jobs:
 
       - name: Run CI Pipeline
         run: pnpm run validate
+
+      # One runtime is enough: the packaged file list does not vary by Node.
+      - name: Check nothing regressed against the published package
+        if: matrix.node-version == '24.x'
+        run: node scripts/check-package-contents.mjs
