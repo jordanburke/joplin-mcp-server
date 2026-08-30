@@ -40,3 +40,7 @@ jobs:
       - name: Check nothing regressed against the published package
         if: matrix.node-version == '24.x'
         run: node scripts/check-package-contents.mjs
+
+      - name: Check version consistency
+        if: matrix.node-version == '24.x'
+        run: pnpm check:versions

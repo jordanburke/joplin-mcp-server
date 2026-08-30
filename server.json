@@ -1,0 +1,113 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.jordanburke/joplin-mcp-server",
+  "description": "Search, read, create, edit and sync Joplin notes and notebooks via a headless Joplin sidecar.",
+  "repository": {
+    "url": "https://github.com/jordanburke/joplin-mcp-server",
+    "source": "github"
+  },
+  "version": "2.3.2",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "joplin-mcp-server",
+      "version": "2.3.2",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "JOPLIN_TOKEN",
+          "description": "Joplin API token, for external mode only (see JOPLIN_HOST). Sidecar mode manages its own token and ignores this.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": true
+        },
+        {
+          "name": "JOPLIN_HOST",
+          "description": "Connect to an existing Joplin instance at this host instead of running a sidecar",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        },
+        {
+          "name": "JOPLIN_PORT",
+          "description": "Port of the existing Joplin instance (default: 41184)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        },
+        {
+          "name": "JOPLIN_PROFILE",
+          "description": "Joplin data directory for sidecar mode (default: ~/.config/joplin-mcp)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        },
+        {
+          "name": "JOPLIN_CLI",
+          "description": "Path to the joplin CLI binary, overriding auto-detection",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        },
+        {
+          "name": "JOPLIN_SYNC_TARGET",
+          "description": "Sync target: none, filesystem, webdav, nextcloud, joplin-cloud, joplin-server, s3, dropbox, onedrive (default: none)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        },
+        {
+          "name": "JOPLIN_SYNC_PATH",
+          "description": "Sync target URL or path; the bucket name for the s3 target",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        },
+        {
+          "name": "JOPLIN_SYNC_USERNAME",
+          "description": "Sync username or email; the access key for the s3 target",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        },
+        {
+          "name": "JOPLIN_SYNC_PASSWORD",
+          "description": "Sync password; the secret key for the s3 target",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": true
+        },
+        {
+          "name": "JOPLIN_SYNC_REGION",
+          "description": "S3 region (default: us-east-1)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        },
+        {
+          "name": "JOPLIN_SYNC_ENDPOINT",
+          "description": "S3 endpoint URL for non-AWS providers such as Backblaze B2, MinIO, R2 or Wasabi (default: https://s3.amazonaws.com/)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        },
+        {
+          "name": "JOPLIN_SYNC_FORCE_PATH_STYLE",
+          "description": "Use path-style S3 URLs, which self-hosted providers such as MinIO usually require: true or false (default: false)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        },
+        {
+          "name": "LOG_LEVEL",
+          "description": "Log verbosity: debug, info, warn or error (default: info)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}

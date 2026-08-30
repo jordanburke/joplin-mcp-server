@@ -36,7 +36,7 @@
     "build": "NODE_ENV=production ts-builds build",
     "dev": "ts-builds dev",
     "build:watch": "tsdown --watch",
-    "prepublishOnly": "pnpm validate",
+    "prepublishOnly": "pnpm check:versions",
     "inspect": "pnpm build && npx @modelcontextprotocol/inspector dist/index.js",
     "start": "pnpm build && npx joplin-mcp-server",
     "start:http": "pnpm build && npx joplin-mcp-server --transport http",
@@ -56,7 +56,8 @@
     "docker:build": "docker build -t joplin-mcp .",
     "docker:run": "docker run -e JOPLIN_TOKEN=$JOPLIN_TOKEN -p 3000:3000 joplin-mcp",
     "build:mcpb": "pnpm build && node scripts/build-mcpb.mjs",
-    "check:package": "node scripts/check-package-contents.mjs"
+    "check:package": "node scripts/check-package-contents.mjs",
+    "check:versions": "tsx scripts/check-versions.ts"
   },
   "prettier": "ts-builds/prettier",
   "keywords": [
@@ -98,5 +99,6 @@
     "tsx": "^4.23.12",
     "vitest": "^4.1.11"
   },
-  "packageManager": "pnpm@11.25.0+sha512.5cde925b4f075f725eb71fbae18a42ffe784524789f19b61c731cb8721ec28aaee160e01a8d5af4fedb2a42cdbf300efe23db356b0d4a17b4d63e11f8ab7c956"
+  "packageManager": "pnpm@11.25.0+sha512.5cde925b4f075f725eb71fbae18a42ffe784524789f19b61c731cb8721ec28aaee160e01a8d5af4fedb2a42cdbf300efe23db356b0d4a17b4d63e11f8ab7c956",
+  "mcpName": "io.github.jordanburke/joplin-mcp-server"
 }

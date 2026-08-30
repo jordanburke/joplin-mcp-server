@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Published to the [MCP registry](https://registry.modelcontextprotocol.io) on each release.
+  `server.json` describes the package and its environment variables; the publish workflow
+  authenticates with the same GitHub OIDC identity npm provenance already uses, so no new
+  secrets are needed.
+- `pnpm check:versions` fails when `server.json` (which carries the version twice),
+  `manifest.json`, or `package.json`'s `mcpName` drift out of agreement. Runs in CI and
+  before publish.
+
 ## [2.3.2] - 2026-08-30
 
 ### Added
