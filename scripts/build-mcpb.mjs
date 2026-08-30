@@ -36,8 +36,11 @@ writeFileSync(
 console.log("• Installing production dependencies (this pulls the Joplin CLI)")
 run("npm", ["install", "--omit=dev", "--no-audit", "--no-fund", "--loglevel=error"], stage)
 
-console.log("• Copying manifest.json")
-cpSync(join(root, "manifest.json"), join(stage, "manifest.json"))
+// The manifest version is derived from package.json rather than copied, so the
+// two cannot drift apart across releases.
+console.log("• Copying manifest.json (version <- package.json)")
+const manifest = JSON.parse(readFileSync(join(root, "manifest.json"), "utf8"))
+writeFileSync(join(stage, "manifest.json"), JSON.stringify({ ...manifest, version: pkg.version }, null, 2) + "\n")
 
 console.log("• Packing .mcpb")
 run("npx", ["-y", "@anthropic-ai/mcpb", "pack", stage, out], root)

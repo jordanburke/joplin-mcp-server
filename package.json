@@ -19,7 +19,8 @@
   "files": [
     "dist/",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "manifest.json"
   ],
   "scripts": {
     "validate": "ts-builds validate",
@@ -52,7 +53,8 @@
     "test:manual:delete-folder": "tsx tests/manual/delete-folder.test.ts",
     "test:manual:list-notebooks": "tsx tests/manual/list-notebooks.test.ts",
     "docker:build": "docker build -t joplin-mcp .",
-    "docker:run": "docker run -e JOPLIN_TOKEN=$JOPLIN_TOKEN -p 3000:3000 joplin-mcp"
+    "docker:run": "docker run -e JOPLIN_TOKEN=$JOPLIN_TOKEN -p 3000:3000 joplin-mcp",
+    "build:mcpb": "pnpm build && node scripts/build-mcpb.mjs"
   },
   "prettier": "ts-builds/prettier",
   "keywords": [
