@@ -7,12 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.2] - 2026-08-30
+
 ### Added
 
 - CI now fails a build that would publish a package missing a file the previous release
   shipped (`pnpm check:package`). Build-hash suffixes are normalized so a rebuilt chunk
   does not read as a loss, and an unpublished package skips rather than fails. Runs in
   `ci.yml` on pushes and PRs, and in `publish.yml` immediately before `npm publish`.
+- This changelog. It ships with the package alongside the README and LICENSE.
 
 ## [2.3.1] - 2026-08-30
 
@@ -86,7 +89,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Earlier releases predate this changelog; see the
 [release history](https://github.com/jordanburke/joplin-mcp-server/releases) for details.
 
-[unreleased]: https://github.com/jordanburke/joplin-mcp-server/compare/v2.3.1...HEAD
+[unreleased]: https://github.com/jordanburke/joplin-mcp-server/compare/v2.3.2...HEAD
+[2.3.2]: https://github.com/jordanburke/joplin-mcp-server/compare/v2.3.1...v2.3.2
 [2.3.1]: https://github.com/jordanburke/joplin-mcp-server/compare/v2.3.0...v2.3.1
 [2.3.0]: https://github.com/jordanburke/joplin-mcp-server/compare/v2.2.2...v2.3.0
 [2.2.2]: https://github.com/jordanburke/joplin-mcp-server/compare/v2.2.1...v2.2.2

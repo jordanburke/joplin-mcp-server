@@ -2,7 +2,7 @@
   "manifest_version": "0.4",
   "name": "joplin-mcp-server",
   "display_name": "Joplin",
-  "version": "2.3.1",
+  "version": "2.3.2",
   "description": "Search, read, create, and edit Joplin notes and notebooks over the Model Context Protocol.",
   "long_description": "An MCP server for the [Joplin](https://joplinapp.org) note-taking app. It runs a self-managed Joplin sidecar (a headless Joplin terminal instance) against a sync target you already use \u2014 no separate Joplin app needs to be running. Provides tools to list notebooks, search notes, read/create/edit/delete notes and folders, and trigger an on-demand sync.\n\nBy default it syncs from a **filesystem** target (a folder that Joplin Desktop/mobile already syncs to). Point `Sync path` at that folder and the server pulls your notes into its own profile.",
   "author": {
