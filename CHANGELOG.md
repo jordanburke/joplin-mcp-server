@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.3] - 2026-08-30
+
 ### Added
 
 - Published to the [MCP registry](https://registry.modelcontextprotocol.io) on each release.
@@ -99,7 +101,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Earlier releases predate this changelog; see the
 [release history](https://github.com/jordanburke/joplin-mcp-server/releases) for details.
 
-[unreleased]: https://github.com/jordanburke/joplin-mcp-server/compare/v2.3.2...HEAD
+[unreleased]: https://github.com/jordanburke/joplin-mcp-server/compare/v2.3.3...HEAD
+[2.3.3]: https://github.com/jordanburke/joplin-mcp-server/compare/v2.3.2...v2.3.3
 [2.3.2]: https://github.com/jordanburke/joplin-mcp-server/compare/v2.3.1...v2.3.2
 [2.3.1]: https://github.com/jordanburke/joplin-mcp-server/compare/v2.3.0...v2.3.1
 [2.3.0]: https://github.com/jordanburke/joplin-mcp-server/compare/v2.2.2...v2.3.0
