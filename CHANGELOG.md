@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `npm version` now propagates the new version into `server.json` and `manifest.json`
+  automatically, via the `version` lifecycle hook, so the synced files land in the version
+  commit. Releasing previously meant hand-editing four version fields across three files,
+  and a tagged commit that missed one failed its own `check:versions` gate.
+
 ## [2.3.3] - 2026-08-30
 
 ### Added

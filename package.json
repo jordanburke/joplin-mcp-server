@@ -57,7 +57,9 @@
     "docker:run": "docker run -e JOPLIN_TOKEN=$JOPLIN_TOKEN -p 3000:3000 joplin-mcp",
     "build:mcpb": "pnpm build && node scripts/build-mcpb.mjs",
     "check:package": "node scripts/check-package-contents.mjs",
-    "check:versions": "tsx scripts/check-versions.ts"
+    "check:versions": "tsx scripts/check-versions.ts",
+    "sync:versions": "tsx scripts/sync-versions.ts",
+    "version": "pnpm sync:versions && git add server.json manifest.json"
   },
   "prettier": "ts-builds/prettier",
   "keywords": [
