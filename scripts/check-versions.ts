@@ -9,18 +9,18 @@ import fs from "fs"
 import path from "path"
 import { fileURLToPath } from "url"
 
-interface PackageJson {
+type PackageJson = {
   version: string
   mcpName?: string
 }
 
-interface ServerJson {
+type ServerJson = {
   name: string
   version: string
   packages?: Array<{ version: string }>
 }
 
-interface ManifestJson {
+type ManifestJson = {
   version: string
 }
 
