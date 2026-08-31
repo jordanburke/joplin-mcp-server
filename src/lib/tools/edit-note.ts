@@ -1,7 +1,7 @@
 import type { JoplinFolder, JoplinNote } from "./base-tool.js"
 import BaseTool, { extractJoplinErrorMessage, ToolError } from "./base-tool.js"
 
-interface EditNoteOptions {
+type EditNoteOptions = {
   note_id: string
   title?: string | undefined
   body?: string | undefined

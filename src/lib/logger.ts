@@ -1,6 +1,6 @@
 type LogLevel = "error" | "warn" | "info" | "debug"
 
-interface LoggerOptions {
+type LoggerOptions = {
   logLevel?: LogLevel
   enableTimestamp?: boolean
 }

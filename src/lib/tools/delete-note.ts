@@ -1,7 +1,7 @@
 import type { JoplinFolder, JoplinNote } from "./base-tool.js"
 import BaseTool, { extractJoplinErrorMessage, ToolError } from "./base-tool.js"
 
-interface DeleteNoteOptions {
+type DeleteNoteOptions = {
   note_id: string
   confirm?: boolean | undefined
 }

@@ -1,7 +1,7 @@
 import type { JoplinFolder } from "./base-tool.js"
 import BaseTool, { extractJoplinErrorMessage, ToolError } from "./base-tool.js"
 
-interface DeleteFolderOptions {
+type DeleteFolderOptions = {
   folder_id: string
   confirm?: boolean | undefined
   force?: boolean | undefined
@@ -9,7 +9,7 @@ interface DeleteFolderOptions {
 
 type FolderItem = { id: string; title?: string; parent_id?: string }
 
-interface FolderContents {
+type FolderContents = {
   items: FolderItem[]
 }
 

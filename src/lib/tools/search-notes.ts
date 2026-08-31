@@ -1,7 +1,7 @@
 import type { JoplinFolder, JoplinNote } from "./base-tool.js"
 import BaseTool, { ToolError } from "./base-tool.js"
 
-interface SearchResult {
+type SearchResult = {
   items: JoplinNote[]
 }
 

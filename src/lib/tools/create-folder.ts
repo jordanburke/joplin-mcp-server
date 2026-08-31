@@ -1,12 +1,12 @@
 import type { JoplinFolder } from "./base-tool.js"
 import BaseTool, { extractJoplinErrorMessage, ToolError } from "./base-tool.js"
 
-interface CreateFolderOptions {
+type CreateFolderOptions = {
   title: string
   parent_id?: string | undefined
 }
 
-interface CreateFolderResponse extends JoplinFolder {
+type CreateFolderResponse = JoplinFolder & {
   created_time: number
   updated_time: number
 }
