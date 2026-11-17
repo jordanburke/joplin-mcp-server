@@ -93,9 +93,7 @@ class DeleteFolder extends BaseTool {
         if (noteCount > 0) {
           resultLines.push("")
           resultLines.push(`📝 Contains ${noteCount} notes:`)
-          notes.items.slice(0, 5).forEach((note) => {
-            resultLines.push(`   - ${note.title ?? "Untitled"}`)
-          })
+          resultLines.push(...notes.items.slice(0, 5).map((note) => `   - ${note.title ?? "Untitled"}`))
           if (noteCount > 5) {
             resultLines.push(`   ... and ${noteCount - 5} more notes`)
           }
@@ -104,9 +102,7 @@ class DeleteFolder extends BaseTool {
         if (subfolderCount > 0) {
           resultLines.push("")
           resultLines.push(`📁 Contains ${subfolderCount} subfolders:`)
-          subfolders.items.slice(0, 5).forEach((folder) => {
-            resultLines.push(`   - ${folder.title ?? "Untitled"}`)
-          })
+          resultLines.push(...subfolders.items.slice(0, 5).map((folder) => `   - ${folder.title ?? "Untitled"}`))
           if (subfolderCount > 5) {
             resultLines.push(`   ... and ${subfolderCount - 5} more folders`)
           }

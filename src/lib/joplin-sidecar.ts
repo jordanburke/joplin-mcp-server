@@ -1,7 +1,7 @@
 import { type ChildProcess, exec, execFile, spawn } from "child_process"
 import crypto from "crypto"
 import fs from "fs"
-import { Either, Left, Match, Option, Right } from "functype"
+import { Either, Left, List, Match, Option, Right } from "functype"
 import { Platform } from "functype-os"
 import { dirname, join } from "path"
 import { fileURLToPath } from "url"
@@ -422,9 +422,8 @@ const configureJoplin = async (cli: string, config: SidecarConfig): Promise<Eith
   const settings = buildSettingsRecord(config)
   try {
     fs.mkdirSync(config.profileDir, { recursive: true })
-    for (const [key, value] of Object.entries(settings)) {
-      await runJoplinConfig(cli, config.profileDir, key, value)
-    }
+    // One `joplin config` call at a time: each writes the same profile's settings
+    await List(Object.entries(settings)).mapAsync(([key, value]) => runJoplinConfig(cli, config.profileDir, key, value))
     return Right(undefined as void)
   } catch (e) {
     return Left(sidecarError("CONFIG_FAILED", "Failed to configure Joplin via CLI", e))

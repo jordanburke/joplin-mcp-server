@@ -12,17 +12,24 @@ on:
     # Run weekly on Sunday at 2 AM UTC
     - cron: "0 2 * * 0"
 
+# A newer push to a pull request cancels the build it supersedes. A push to main gets a group of its own,
+# because GitHub cancels a waiting run when a newer one joins its group, even with cancel-in-progress off.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   audit:
     name: Dependency Audit
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6.1.0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4

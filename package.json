@@ -25,6 +25,7 @@
   ],
   "scripts": {
     "validate": "ts-builds validate",
+    "ci": "ts-builds ci",
     "format": "ts-builds format",
     "format:check": "ts-builds format:check",
     "lint": "ts-builds lint",
@@ -87,8 +88,8 @@
     "axios": "^1.20.0",
     "dotenv": "^17.4.2",
     "fastmcp": "^4.16.12",
-    "functype": "^1.9.0",
-    "functype-os": "^1.9.0",
+    "functype": "^1.27.0",
+    "functype-os": "^1.27.0",
     "joplin": "^3.6.2",
     "zod": "^4.5.1"
   },
@@ -96,11 +97,11 @@
     "@types/node": "^22.20.1",
     "cross-env": "^10.1.0",
     "rimraf": "^6.1.3",
-    "ts-builds": "^3.4.1",
+    "ts-builds": "^4.7.0",
     "tsdown": "^0.22.14",
     "tsx": "^4.23.12",
     "vitest": "^4.1.11"
   },
-  "packageManager": "pnpm@11.27.0+sha512.ad12821463bb143295f1fa3ecde77a6b9b97a7990386da800ff57bffc3964dc64b7b1c7559d5dbe5c337aea659ed9c8937d4370bd198ca2009bc6fa0249808e7",
+  "packageManager": "pnpm@12.21.0+sha512.66fd8278ee28935ce951792d34367ff3af5c432a2756445823029533835b8da529bbe0be5130afd56ed0713fb8789e47bad82d93bd5ae2fe54b15562d6276ef0",
   "mcpName": "io.github.jordanburke/joplin-mcp-server"
 }

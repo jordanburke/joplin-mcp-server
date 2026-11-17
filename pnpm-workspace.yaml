@@ -17,9 +17,9 @@ allowBuilds:
 
 # First-party packages: install just-published versions without the 24h minimumReleaseAge wait
 minimumReleaseAgeExclude:
+  - "*functype*"
   - ts-builds
-  - functype
-  - functype-os
+  - somamcp
   # Pinned: build-toolchain transitive deps (tsdown → rolldown) published <24h ago.
   # Safe to prune once these versions cross the 24h minimumReleaseAge window.
   - "rolldown@1.1.3"
