@@ -10,15 +10,10 @@ class ListNotebooks extends BaseTool {
         }),
       )
 
-      const notebooksByParentId: Record<string, JoplinFolder[]> = {}
-
-      notebooks.forEach((notebook) => {
+      const notebooksByParentId = notebooks.reduce<Record<string, JoplinFolder[]>>((acc, notebook) => {
         const parentId = notebook.parent_id ?? ""
-        if (!notebooksByParentId[parentId]) {
-          notebooksByParentId[parentId] = []
-        }
-        notebooksByParentId[parentId].push(notebook)
-      })
+        return { ...acc, [parentId]: [...(acc[parentId] ?? []), notebook] }
+      }, {})
 
       // Add a header with instructions
       const resultLines = [
@@ -54,25 +49,16 @@ class ListNotebooks extends BaseTool {
       notebooksByParentId: Record<string, JoplinFolder[]>
     },
   ): string[] {
-    const result: string[] = []
     const indentSpaces = " ".repeat(indent)
 
-    this.sortNotebooks(notebooks).forEach((notebook) => {
+    return this.sortNotebooks(notebooks).flatMap((notebook) => {
       const { id } = notebook
-      result.push(`${indentSpaces}Notebook: "${notebook.title}" (notebook_id: "${id}")\n`)
-
       const childNotebooks = notebooksByParentId[id]
-      if (childNotebooks) {
-        result.push(
-          ...this.notebooksLines(childNotebooks, {
-            indent: indent + 2,
-            notebooksByParentId,
-          }),
-        )
-      }
+      return [
+        `${indentSpaces}Notebook: "${notebook.title}" (notebook_id: "${id}")\n`,
+        ...(childNotebooks ? this.notebooksLines(childNotebooks, { indent: indent + 2, notebooksByParentId }) : []),
+      ]
     })
-
-    return result
   }
 
   private sortNotebooks(notebooks: JoplinFolder[]): JoplinFolder[] {

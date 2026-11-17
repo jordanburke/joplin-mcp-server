@@ -59,27 +59,26 @@ class SearchNotes extends BaseTool {
         resultLines.push(`read_multinote note_ids=${JSON.stringify(noteIds)}\n`)
       }
 
-      searchResults.items.forEach((note) => {
-        const notebookTitle = folderMap[note.parent_id ?? ""] ?? "Unknown notebook"
-        const notebookId = note.parent_id ?? "unknown"
-        const updatedDate = this.formatDate(note.updated_time)
-
-        resultLines.push(`- Note: "${note.title}" (note_id: "${note.id}")`)
-        resultLines.push(`  Notebook: "${notebookTitle}" (notebook_id: "${notebookId}")`)
-        resultLines.push(`  Updated: ${updatedDate}`)
-
-        // Add a snippet of the note body if available
-        if (note.body) {
-          const snippet = note.body.substring(0, 100).replace(/\n/g, " ") + (note.body.length > 100 ? "..." : "")
-          resultLines.push(`  Snippet: ${snippet}`)
-        }
-
-        // Add hints for using related commands
-        resultLines.push(`  To read this note: read_note note_id="${note.id}"`)
-        resultLines.push(`  To read this notebook: read_notebook notebook_id="${notebookId}"`)
-
-        resultLines.push("") // Empty line between notes
-      })
+      resultLines.push(
+        ...searchResults.items.flatMap((note) => {
+          const notebookTitle = folderMap[note.parent_id ?? ""] ?? "Unknown notebook"
+          const notebookId = note.parent_id ?? "unknown"
+          // Add a snippet of the note body if available
+          const snippet = note.body
+            ? [`  Snippet: ${note.body.substring(0, 100).replace(/\n/g, " ") + (note.body.length > 100 ? "..." : "")}`]
+            : []
+          return [
+            `- Note: "${note.title}" (note_id: "${note.id}")`,
+            `  Notebook: "${notebookTitle}" (notebook_id: "${notebookId}")`,
+            `  Updated: ${this.formatDate(note.updated_time)}`,
+            ...snippet,
+            // Add hints for using related commands
+            `  To read this note: read_note note_id="${note.id}"`,
+            `  To read this notebook: read_notebook notebook_id="${notebookId}"`,
+            "", // Empty line between notes
+          ]
+        }),
+      )
 
       return resultLines.join("\n")
     } catch (error: unknown) {

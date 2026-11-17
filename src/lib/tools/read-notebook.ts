@@ -67,21 +67,18 @@ class ReadNotebook extends BaseTool {
       // Sort notes by updated_time (newest first)
       const sortedNotes = [...notes.items].sort((a, b) => b.updated_time - a.updated_time)
 
-      sortedNotes.forEach((note) => {
-        const updatedDate = this.formatDate(note.updated_time)
-
-        // Add checkbox for todos
-        if (note.is_todo) {
-          const checkboxStatus = note.todo_completed ? "✅" : "☐"
-          resultLines.push(`- ${checkboxStatus} Note: "${note.title}" (note_id: "${note.id}")`)
-        } else {
-          resultLines.push(`- Note: "${note.title}" (note_id: "${note.id}")`)
-        }
-
-        resultLines.push(`  Updated: ${updatedDate}`)
-        resultLines.push(`  To read this note: read_note note_id="${note.id}"`)
-        resultLines.push("") // Empty line between notes
-      })
+      resultLines.push(
+        ...sortedNotes.flatMap((note) => {
+          // Add checkbox for todos
+          const prefix = note.is_todo ? `${note.todo_completed ? "✅" : "☐"} ` : ""
+          return [
+            `- ${prefix}Note: "${note.title}" (note_id: "${note.id}")`,
+            `  Updated: ${this.formatDate(note.updated_time)}`,
+            `  To read this note: read_note note_id="${note.id}"`,
+            "", // Empty line between notes
+          ]
+        }),
+      )
 
       return resultLines.join("\n")
     } catch (error: unknown) {

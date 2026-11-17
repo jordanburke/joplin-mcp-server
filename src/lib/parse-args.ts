@@ -222,21 +222,17 @@ function parseArgs(): ParsedArgs {
         process.stderr.write(`Loading environment from: ${envPath}\n`)
         const envContent = fs.readFileSync(envPath, "utf-8")
         const envLines = envContent.split("\n")
-        const loadedVars: string[] = []
-
-        for (const line of envLines) {
+        // Sets each variable the environment doesn't already have, and returns the names it set
+        const loadedVars = envLines.flatMap((line) => {
           const trimmedLine = line.trim()
-          if (trimmedLine && !trimmedLine.startsWith("#")) {
-            const [key, ...valueParts] = trimmedLine.split("=")
-            if (key && valueParts.length > 0) {
-              const value = valueParts.join("=").replace(/^["']|["']$/g, "")
-              if (!process.env[key.trim()]) {
-                process.env[key.trim()] = value
-                loadedVars.push(key.trim())
-              }
-            }
-          }
-        }
+          if (!trimmedLine || trimmedLine.startsWith("#")) return []
+          const [key, ...valueParts] = trimmedLine.split("=")
+          if (!key || valueParts.length === 0) return []
+          const name = key.trim()
+          if (process.env[name]) return []
+          process.env[name] = valueParts.join("=").replace(/^["']|["']$/g, "")
+          return [name]
+        })
 
         if (loadedVars.length > 0) {
           process.stderr.write(`Loaded variables: ${loadedVars.join(", ")}\n`)

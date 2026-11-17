@@ -307,6 +307,7 @@ pnpm install          # Install dependencies
 pnpm build            # Build to dist/
 pnpm test             # Run tests
 pnpm validate         # Format + lint + typecheck + test + build
+pnpm run ci           # validate's checks without fixing, as CI runs them (type `run`: `pnpm ci` is a clean install)
 pnpm serve:dev        # Dev mode with hot reload (stdio)
 pnpm serve:dev:http   # Dev mode with hot reload (HTTP)
 pnpm inspect          # Build and open MCP Inspector
