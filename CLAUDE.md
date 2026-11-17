@@ -15,7 +15,7 @@ This is a TypeScript MCP (Model Context Protocol) server for Joplin note-taking 
 - **Linting**: `pnpm lint` - Run ESLint with auto-fix
 - **Testing**: `pnpm test` - Run all Vitest tests
 - **Validation**: `pnpm validate` - Run format + lint + test + build
-- **CI**: `pnpm run ci` - The same checks without fixing, as CI and `prepublishOnly` run them (type `run`: `pnpm ci` is a clean install)
+- **CI**: `pnpm run ci` - The same checks without fixing, as CI runs them (type `run`: `pnpm ci` is a clean install)
 - **CLI Usage**: `npx joplin-mcp-server --help` - Get help
 
 ## Architecture

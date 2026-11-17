@@ -67,6 +67,9 @@ class ReadMultiNote extends BaseTool {
               ]
             : []
 
+          // Treats a missing, null or empty body alike
+          const body = note.body ?? ""
+
           return {
             status: "ok",
             noteId,
@@ -81,7 +84,7 @@ class ReadMultiNote extends BaseTool {
               `Updated: ${this.formatDate(note.updated_time)}`,
               // Separators around the note body
               "\n---\n",
-              note.body !== undefined && note.body !== "" ? note.body : "(This note has no content)",
+              body !== "" ? body : "(This note has no content)",
               "\n---\n",
             ],
           }
