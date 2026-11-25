@@ -316,3 +316,7 @@ pnpm inspect          # Build and open MCP Inspector
 ## License
 
 MIT
+
+---
+
+Maintained by [Jordan Burke](https://github.com/jordanburke) · **Affiliated with <a href="https://sapientsai.com/"><img src="https://sapientsai.com/images/logo.svg" alt="" width="20" style="vertical-align: middle;"> SapientsAI</a>**
