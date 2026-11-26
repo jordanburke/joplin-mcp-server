@@ -192,7 +192,8 @@ export async function startHttpServer(options: HttpServerOptions): Promise<void>
   process.stderr.write(`Configured for Joplin at ${options.host}:${options.port}\n`)
 
   const port = options.httpPort ?? 3000
-  const host = options.httpHost ?? "localhost"
+  // A blank host would listen on every interface, so it falls back to localhost too.
+  const host = options.httpHost !== undefined && options.httpHost.trim() !== "" ? options.httpHost : "localhost"
   const endpoint = options.endpoint ?? "/mcp"
 
   await server.start({

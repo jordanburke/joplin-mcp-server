@@ -22,6 +22,16 @@ describe("--http-host", () => {
     expect(parseArgs().httpHost).toBe("0.0.0.0")
   })
 
+  it("treats a blank flag or env value as unset, so it never binds every interface", () => {
+    vi.stubEnv("JOPLIN_MCP_HTTP_HOST", "")
+    process.argv = ["node", "index.js", "--transport", "http"]
+    expect(parseArgs().httpHost).toBe("localhost")
+
+    vi.stubEnv("JOPLIN_MCP_HTTP_HOST", "  ")
+    process.argv = ["node", "index.js", "--transport", "http", "--http-host", ""]
+    expect(parseArgs().httpHost).toBe("localhost")
+  })
+
   it("falls back to JOPLIN_MCP_HTTP_HOST", () => {
     vi.stubEnv("JOPLIN_MCP_HTTP_HOST", "0.0.0.0")
     process.argv = ["node", "index.js", "--transport", "http"]

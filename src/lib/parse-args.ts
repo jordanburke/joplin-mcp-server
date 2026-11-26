@@ -279,8 +279,12 @@ function parseArgs(): ParsedArgs {
     .getOrElse(() => 3000)
 
   // Handle --http-host. Localhost by default: HTTP mode has no auth, so other machines must opt in.
+  // A blank value counts as unset, because Node reads an empty host as "every interface".
+  const isNotBlank = (host: string): boolean => host.trim() !== ""
   const httpHost: string = extractArg(args, "--http-host")
-    .orElse(() => Option(process.env.JOPLIN_MCP_HTTP_HOST))
+    .filter(isNotBlank)
+    .orElse(() => Option(process.env.JOPLIN_MCP_HTTP_HOST).filter(isNotBlank))
+    .map((host) => host.trim())
     .getOrElse(() => "localhost")
 
   // Handle --profile

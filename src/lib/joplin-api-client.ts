@@ -78,8 +78,13 @@ const causeMessage = (cause: unknown): string => {
   return `${cause.message}${inner}`
 }
 
-const redact = (message: string, token: string): string =>
-  token.length > 0 ? message.replaceAll(token, "<redacted>") : message
+/** Blank out the token as written, and in both forms a URL encodes it into. */
+const redact = (message: string, token: string): string => {
+  if (token.length === 0) return message
+  // Replacing a form twice is harmless: after the first pass there is nothing left to match.
+  const forms = [token, encodeURIComponent(token), new URLSearchParams({ t: token }).toString().slice(2)]
+  return forms.reduce((text, form) => text.replaceAll(form, "<redacted>"), message)
+}
 
 const toRequestError = (
   error: HttpError | TimeoutError,

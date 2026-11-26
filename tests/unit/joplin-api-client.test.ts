@@ -154,6 +154,15 @@ describe("JoplinAPIClient", () => {
       expect(message).toContain("token=<redacted>")
     })
 
+    it("should redact a token that the URL encodes", async () => {
+      const odd = new JoplinAPIClient({ token: "a b+c/=", fetch: fetchMock as typeof fetch })
+      fetchMock.mockRejectedValue(new TypeError("Failed to parse URL from http://x/notes?token=a+b%2Bc%2F%3D"))
+
+      const message = leftOf(await odd.get("/notes")).message
+
+      expect(message).toBe("Failed to parse URL from http://x/notes?token=<redacted>")
+    })
+
     it("should return Left with a timeout message when Joplin does not answer", async () => {
       vi.useFakeTimers()
       try {

@@ -69,6 +69,7 @@ JOPLIN_HOST=192.168.0.40 JOPLIN_PORT=41184 npx joplin-mcp-server --token your_to
 | `JOPLIN_SYNC_ENDPOINT`         | S3 endpoint URL (for non-AWS providers)                 | AWS S3                 |
 | `JOPLIN_SYNC_FORCE_PATH_STYLE` | Use path-style S3 URLs (`true`/`false`)                 | `false`                |
 | `LOG_LEVEL`                    | Log level: debug, info, warn, error                     | `info`                 |
+| `JOPLIN_MCP_HTTP_HOST`         | HTTP interface to listen on (`--http-host` wins)        | `localhost`            |
 
 ### Command Line Options
 
@@ -78,6 +79,7 @@ OPTIONS:
   --token <token>            Joplin API token
   --transport <type>         Transport type: stdio (default) or http
   --http-port <port>         HTTP server port (default: 3000, only with --transport http)
+  --http-host <host>         HTTP interface to listen on (default: localhost; the Docker image uses 0.0.0.0)
   --profile <dir>            Joplin data directory (default: ~/.config/joplin-mcp)
   --sync-target <type>       Sync target: none, filesystem, webdav, nextcloud,
                              joplin-cloud, joplin-server, s3, dropbox, onedrive
