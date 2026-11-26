@@ -1,13 +1,4 @@
-import { dirname, join } from "node:path"
-import { fileURLToPath } from "node:url"
-
-import {
-  createJsonFileTelemetry,
-  createServer,
-  type SomaServerInstance,
-  type TelemetryCollector,
-  UserError,
-} from "somamcp/node"
+import { createServer, type SomaServerInstance, UserError } from "somamcp/node"
 import { z } from "zod"
 
 import { ToolError } from "./lib/tools/index.js"
@@ -28,11 +19,6 @@ const runWithUserError = async <T>(fn: () => Promise<T>): Promise<T> => {
   }
 }
 
-export type JoplinServerOptions = {
-  /** Where tool calls are recorded. stdio writes them to a file in `logs/`; HTTP records none. */
-  telemetry?: TelemetryCollector
-}
-
 export type HttpServerOptions = {
   httpPort?: number
   /** The interface to listen on. Defaults to localhost; the Docker image passes 0.0.0.0. */
@@ -41,10 +27,8 @@ export type HttpServerOptions = {
 }
 
 /** The Joplin MCP server, with every tool registered. Both transports serve this same server. */
-export function createJoplinServer(
-  manager: JoplinServerManager,
-  options: JoplinServerOptions = {},
-): SomaServerInstance {
+// No telemetry: a tool call's input and output are the user's notes, and nothing should copy them to disk.
+export function createJoplinServer(manager: JoplinServerManager): SomaServerInstance {
   // The `info` introspection tool is left out, so the tool list is exactly Joplin's 12 tools.
   const server = createServer({
     name: "joplin-mcp-server",
@@ -52,7 +36,6 @@ export function createJoplinServer(
     enableIntrospection: false,
     // A note created with an inline image_data_url can be several MB. 10 MiB matches what FastMCP accepted.
     maxRequestBodySize: 10 * 1024 * 1024,
-    ...(options.telemetry ? { telemetry: options.telemetry } : {}),
   })
 
   // Add list_notebooks tool
@@ -212,15 +195,8 @@ export async function startHttpServer(manager: JoplinServerManager, options: Htt
   process.stderr.write(`somamcp server running on http://${host}:${port}${endpoint}\n`)
 }
 
-/** The log file for this stdio session, in `logs/` next to `dist/`, where the server always kept them. */
-const stdioLogFile = (): string => {
-  const logsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "logs")
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-")
-  return join(logsDir, `mcp-server-${timestamp}.ndjson`)
-}
-
 export async function startStdioServer(manager: JoplinServerManager): Promise<void> {
-  const server = createJoplinServer(manager, { telemetry: createJsonFileTelemetry({ filePath: stdioLogFile() }) })
+  const server = createJoplinServer(manager)
   await server.start({ transportType: "stdio" })
   process.stderr.write("MCP server started and ready to receive commands\n")
 }

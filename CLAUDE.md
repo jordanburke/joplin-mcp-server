@@ -8,7 +8,7 @@ This is a TypeScript MCP (Model Context Protocol) server for Joplin note-taking 
 
 ## Key Commands
 
-- **Build**: `pnpm build` - Compiles TypeScript to dist/ (CommonJS format)
+- **Build**: `pnpm build` - Compiles TypeScript to dist/ (ESM)
 - **Development**: `pnpm serve:dev:http` - Run in HTTP mode with hot reload
 - **Type checking**: `pnpm typecheck` - Validate TypeScript types
 - **Formatting**: `pnpm format` - Format code with Prettier
@@ -47,9 +47,9 @@ Each tool follows a consistent pattern:
 
 ### Build Configuration
 
-- **Format**: CommonJS (`.js` files in dist/)
+- **Format**: ESM (`.js` files in dist/)
 - **TypeScript**: Target ES2022, strict mode enabled
-- **Builder**: tsup with dual entry points (index and bin)
+- **Builder**: tsdown with two entry points (index and bin)
 - **Output**: `dist/` directory
 - **Source maps**: Generated for debugging
 
@@ -75,11 +75,10 @@ Can be set via `.env` file, shell environment, or command-line arguments.
 - **Setup**: `vitest.setup.ts` loads environment variables
 - **Coverage**: V8 provider with HTML and text reporting
 
-### Logging System
+### Logging
 
-- stdio sessions write somamcp telemetry to a timestamped NDJSON file in `logs/` (gitignored): one event per tool call, with its input, output, duration and any error
-- Configurable log levels via `LOG_LEVEL` environment variable (debug, info, warn, error)
 - Diagnostics go to stderr; stdout carries only the MCP stream
+- Nothing is written to disk: tool inputs and outputs are the user's notes
 
 ### Development Workflow
 

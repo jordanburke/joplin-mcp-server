@@ -15,8 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stdio no longer uses the MCP SDK directly, and HTTP no longer uses FastMCP. The server reports
   itself as `joplin-mcp-server` on both.
   - stdio tool errors arrive in the same JSON envelope as HTTP (below) instead of bare text.
-  - stdio logs are somamcp telemetry, one NDJSON event per tool call in `logs/mcp-server-*.ndjson`,
-    instead of a raw copy of every JSON-RPC message.
+  - stdio checks arguments against each tool's schema, so a wrong type or a missing required field
+    is a tool error before the tool runs. An unknown tool name is a JSON-RPC error (-32602).
+  - A call still in flight when stdin closes runs to completion but gets no reply. MCP hosts keep
+    stdin open, so this only affects piped, one-shot use.
   - HTTP mode now uses the sidecar the same way stdio does, so `sync` there drives a real sync
     instead of reporting that on-demand sync is unavailable.
 - HTTP mode still serves `/mcp` on `--http-port`, on localhost by default.
