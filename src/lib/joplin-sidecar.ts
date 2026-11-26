@@ -560,6 +560,9 @@ export class JoplinSidecar {
   private config: SidecarConfig
   private childProcess: ChildProcess | null = null
   private startPromise: Promise<Either<SidecarError, ChildProcess>> | null = null
+  // True until the current startPromise settles. A start still in flight has no live server to
+  // probe yet, so it must be shared, never dropped as dead.
+  private startInFlight = false
   private portResolution: PortResolution | null = null
   private cleanupRegistered = false
 
@@ -699,15 +702,21 @@ export class JoplinSidecar {
     // A shared sidecar can die while we are still running — most often because the
     // process that spawned it exited. Drop a settled start so the next call really
     // restarts instead of replaying an earlier success against a dead server.
-    if (this.startPromise && !this.sidecarAlive()) {
+    if (this.startPromise && !this.startInFlight && !this.sidecarAlive()) {
       process.stderr.write("[joplin-sidecar] Sidecar is no longer running, restarting\n")
       this.startPromise = null
       this.childProcess = null
       this.portResolution = null
     }
     if (this.startPromise) return this.startPromise
-    this.startPromise = this.doStart()
-    return this.startPromise
+    const started = this.doStart()
+    this.startPromise = started
+    this.startInFlight = true
+    const settle = (): void => {
+      if (this.startPromise === started) this.startInFlight = false
+    }
+    started.then(settle, settle)
+    return started
   }
 
   private async doStart(): Promise<Either<SidecarError, ChildProcess>> {
