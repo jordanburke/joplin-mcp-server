@@ -23,9 +23,8 @@ This is a TypeScript MCP (Model Context Protocol) server for Joplin note-taking 
 ### Core Components
 
 - **Main server** (`src/index.ts`): Entry point supporting stdio and HTTP transports
-- **Server Implementations**:
-  - `src/server-core.ts`: Core MCP server with stdio transport
-  - `src/server-http.ts`: somamcp HTTP server (Streamable HTTP, stateless, public `/health`)
+- **Server** (`src/server.ts`): one somamcp server with every tool registered (`createJoplinServer`), served over stdio (`startStdioServer`) or Streamable HTTP (`startHttpServer`: stateless, public `/health`, localhost unless `--http-host`)
+- **Manager** (`src/server-core.ts`): `JoplinServerManager` connects to Joplin (starting the sidecar if needed) and runs the tools
 - **API Client** (`src/lib/joplin-api-client.ts`): functype `Http` client for the Joplin REST API with pagination; failures are a `JoplinRequestError` (read with `statusOf` / `joplinErrorOf` / `pathOf`)
 - **Tools** (`src/lib/tools/`): 11 Joplin tools following consistent BaseTool pattern
   - list-notebooks, search-notes, read-notebook, read-note, read-multinote
@@ -78,10 +77,9 @@ Can be set via `.env` file, shell environment, or command-line arguments.
 
 ### Logging System
 
-- Creates timestamped log files in `logs/` directory (gitignored)
-- Logs both incoming commands and outgoing responses via custom `LoggingTransport` class
+- stdio sessions write somamcp telemetry to a timestamped NDJSON file in `logs/` (gitignored): one event per tool call, with its input, output, duration and any error
 - Configurable log levels via `LOG_LEVEL` environment variable (debug, info, warn, error)
-- LoggingTransport extends StdioServerTransport and intercepts messages for logging
+- Diagnostics go to stderr; stdout carries only the MCP stream
 
 ### Development Workflow
 

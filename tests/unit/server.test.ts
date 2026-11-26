@@ -10,11 +10,9 @@ const manager: Record<string, ReturnType<typeof vi.fn>> = {
   searchNotes: vi.fn(),
 }
 
-vi.mock("../../src/server-core.js", () => ({ initializeJoplinManager: () => manager }))
-
 vi.stubGlobal("__VERSION__", "9.9.9")
 
-const { createHttpServer } = await import("../../src/server-http.js")
+const { createJoplinServer } = await import("../../src/server.js")
 
 const MCP_URL = new URL("http://joplin.test/mcp")
 
@@ -35,13 +33,13 @@ const EXPECTED_TOOLS = [
 
 type TextResult = { content: Array<{ type: string; text?: string }>; isError?: boolean }
 
-describe("HTTP server (somamcp)", () => {
-  let server: ReturnType<typeof createHttpServer>["server"]
+describe("Joplin MCP server (somamcp)", () => {
+  let server: ReturnType<typeof createJoplinServer>
   let client: Client
 
   beforeEach(async () => {
     vi.clearAllMocks()
-    server = createHttpServer({ host: "127.0.0.1", port: 41184, token: "t" }).server
+    server = createJoplinServer(manager as unknown as Parameters<typeof createJoplinServer>[0])
     client = new Client({ name: "test", version: "1.0.0" })
     await client.connect(
       new StreamableHTTPClientTransport(MCP_URL, {
@@ -54,7 +52,7 @@ describe("HTTP server (somamcp)", () => {
     await client.close()
   })
 
-  it("lists the same 12 tools as stdio, without somamcp's info tool", async () => {
+  it("lists the 12 Joplin tools, without somamcp's info tool", async () => {
     const { tools } = await client.listTools()
     expect(tools.map((t) => t.name).sort()).toEqual(EXPECTED_TOOLS)
   })

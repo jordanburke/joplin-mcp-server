@@ -11,11 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Breaking:** Node 22 or newer is required (was 18). The MCP SDK that somamcp builds on needs 20,
   and CI tests 22 and 24.
-- HTTP mode runs on [somamcp](https://github.com/sapientsai/SomaMCP) instead of FastMCP. It still
-  serves `/mcp` on `--http-port`, on localhost by default.
+- Both transports run on [somamcp](https://github.com/sapientsai/SomaMCP), from one tool registry.
+  stdio no longer uses the MCP SDK directly, and HTTP no longer uses FastMCP. The server reports
+  itself as `joplin-mcp-server` on both.
+  - stdio tool errors arrive in the same JSON envelope as HTTP (below) instead of bare text.
+  - stdio logs are somamcp telemetry, one NDJSON event per tool call in `logs/mcp-server-*.ndjson`,
+    instead of a raw copy of every JSON-RPC message.
+  - HTTP mode now uses the sidecar the same way stdio does, so `sync` there drives a real sync
+    instead of reporting that on-demand sync is unavailable.
+- HTTP mode still serves `/mcp` on `--http-port`, on localhost by default.
   - New `--http-host` flag (or `JOPLIN_MCP_HTTP_HOST`) picks the interface. HTTP mode has no auth,
     so listening beyond localhost is opt-in. The Docker image passes `--http-host 0.0.0.0`.
-  - `/health` now answers `{"name":"joplin","status":"running"}`.
+  - `/health` now answers `{"name":"joplin-mcp-server","status":"running"}`.
   - Tool errors arrive as somamcp's JSON envelope instead of bare text. A tool's own failure, and
     Joplin being unreachable, are `errorCategory: "execution"` with the message unchanged. Other
     errors get a category and suggestion from somamcp.
@@ -23,12 +30,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     which with no auth let any web page drive the tools.
   - The legacy SSE endpoint (`/sse`) and HTTP sessions are gone; Streamable HTTP on `/mcp` is
     stateless. Request bodies up to 10 MiB are accepted, as before.
-- When Joplin can't be reached, tools report it as a tool error on both transports. On stdio the
-  text no longer starts with `Error: `.
+- When Joplin can't be reached, tools report it as a tool error (`errorCategory: "execution"`).
 - Requests to Joplin go through functype's `Http` client instead of axios, with the same timeouts.
   Status errors read as before (`Request failed with status code 404`). Connection errors now read
   `fetch failed: connect ECONNREFUSED ...`. The API token is redacted from any error message.
 - Dependencies bumped, including functype 2.
+
+### Fixed
+
+- A tool call that arrived while the sidecar was still starting spawned a second Joplin server.
+  That one exited because the port was taken, so the call failed with `SPAWN_FAILED` and the first
+  server was orphaned. A start in flight is now shared.
 
 ### Added
 

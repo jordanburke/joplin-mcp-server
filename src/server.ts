@@ -1,9 +1,17 @@
-import { createServer, type SomaServerInstance, UserError } from "somamcp/node"
+import { dirname, join } from "node:path"
+import { fileURLToPath } from "node:url"
+
+import {
+  createJsonFileTelemetry,
+  createServer,
+  type SomaServerInstance,
+  type TelemetryCollector,
+  UserError,
+} from "somamcp/node"
 import { z } from "zod"
 
 import { ToolError } from "./lib/tools/index.js"
 import type { JoplinServerManager } from "./server-core.js"
-import { initializeJoplinManager } from "./server-core.js"
 
 declare const __VERSION__: `${number}.${number}.${number}`
 
@@ -20,32 +28,31 @@ const runWithUserError = async <T>(fn: () => Promise<T>): Promise<T> => {
   }
 }
 
+export type JoplinServerOptions = {
+  /** Where tool calls are recorded. stdio writes them to a file in `logs/`; HTTP records none. */
+  telemetry?: TelemetryCollector
+}
+
 export type HttpServerOptions = {
-  host: string
-  port: number
-  token: string
   httpPort?: number
   /** The interface to listen on. Defaults to localhost; the Docker image passes 0.0.0.0. */
   httpHost?: string
   endpoint?: string
 }
 
-export function createHttpServer(options: HttpServerOptions): {
-  server: SomaServerInstance
-  manager: JoplinServerManager
-} {
-  process.stderr.write("Initializing somamcp server for Joplin...\n")
-
-  // Initialize Joplin manager
-  const manager = initializeJoplinManager({ host: options.host, port: options.port, token: options.token })
-
-  // The `info` introspection tool is left out, so HTTP lists the same 12 tools as stdio.
+/** The Joplin MCP server, with every tool registered. Both transports serve this same server. */
+export function createJoplinServer(
+  manager: JoplinServerManager,
+  options: JoplinServerOptions = {},
+): SomaServerInstance {
+  // The `info` introspection tool is left out, so the tool list is exactly Joplin's 12 tools.
   const server = createServer({
-    name: "joplin",
+    name: "joplin-mcp-server",
     version: __VERSION__,
     enableIntrospection: false,
     // A note created with an inline image_data_url can be several MB. 10 MiB matches what FastMCP accepted.
     maxRequestBodySize: 10 * 1024 * 1024,
+    ...(options.telemetry ? { telemetry: options.telemetry } : {}),
   })
 
   // Add list_notebooks tool
@@ -182,14 +189,11 @@ export function createHttpServer(options: HttpServerOptions): {
     execute: () => runWithUserError(() => manager.sync()),
   })
 
-  process.stderr.write("somamcp server configured with 12 Joplin tools\n")
-  return { server, manager }
+  return server
 }
 
-export async function startHttpServer(options: HttpServerOptions): Promise<void> {
-  const { server } = createHttpServer(options)
-
-  process.stderr.write(`Configured for Joplin at ${options.host}:${options.port}\n`)
+export async function startHttpServer(manager: JoplinServerManager, options: HttpServerOptions = {}): Promise<void> {
+  const server = createJoplinServer(manager)
 
   const port = options.httpPort ?? 3000
   // A blank host would listen on every interface, so it falls back to localhost too.
@@ -206,4 +210,17 @@ export async function startHttpServer(options: HttpServerOptions): Promise<void>
   })
 
   process.stderr.write(`somamcp server running on http://${host}:${port}${endpoint}\n`)
+}
+
+/** The log file for this stdio session, in `logs/` next to `dist/`, where the server always kept them. */
+const stdioLogFile = (): string => {
+  const logsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "logs")
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-")
+  return join(logsDir, `mcp-server-${timestamp}.ndjson`)
+}
+
+export async function startStdioServer(manager: JoplinServerManager): Promise<void> {
+  const server = createJoplinServer(manager, { telemetry: createJsonFileTelemetry({ filePath: stdioLogFile() }) })
+  await server.start({ transportType: "stdio" })
+  process.stderr.write("MCP server started and ready to receive commands\n")
 }
