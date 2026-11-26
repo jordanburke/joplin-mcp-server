@@ -29,6 +29,7 @@ const REQUEST_TIMEOUT_MS = 30_000
  * which for Joplin is usually `{ error: "..." }`.
  *
  * Neither the message nor `path` holds the full URL, because the API token travels in its query string.
+ * A message passed on from fetch itself can name the URL, so the token is redacted from it.
  */
 class JoplinRequestError extends Error {
   readonly path: string
@@ -77,7 +78,15 @@ const causeMessage = (cause: unknown): string => {
   return `${cause.message}${inner}`
 }
 
-const toRequestError = (error: HttpError | TimeoutError, path: string, timeoutMs: number): JoplinRequestError => {
+const redact = (message: string, token: string): string =>
+  token.length > 0 ? message.replaceAll(token, "<redacted>") : message
+
+const toRequestError = (
+  error: HttpError | TimeoutError,
+  path: string,
+  timeoutMs: number,
+  token: string,
+): JoplinRequestError => {
   if (error instanceof TimeoutError) return new JoplinRequestError(`timeout of ${timeoutMs}ms exceeded`, path)
   switch (error._tag) {
     case "HttpStatusError":
@@ -89,11 +98,11 @@ const toRequestError = (error: HttpError | TimeoutError, path: string, timeoutMs
       )
     case "DecodeError":
       return new JoplinRequestError(
-        `Joplin sent a response that could not be parsed: ${causeMessage(error.cause)}`,
+        `Joplin sent a response that could not be parsed: ${redact(causeMessage(error.cause), token)}`,
         path,
       )
     case "NetworkError":
-      return new JoplinRequestError(causeMessage(error.cause), path)
+      return new JoplinRequestError(redact(causeMessage(error.cause), token), path)
   }
 }
 
@@ -173,12 +182,13 @@ class JoplinAPIClient {
       .request<T>({ method, url: path, body, ...(params ? { params } : {}) })
       .timeout(timeoutMs)
       .map((response: HttpResponse<T>) => response.data)
-      .mapError((error) => toRequestError(error, path, timeoutMs))
+      .mapError((error) => toRequestError(error, path, timeoutMs, this.token))
     try {
       return await request.run()
     } catch (defect: unknown) {
       // run() rejects only on a defect, a bug rather than a failed request. Report it the same way.
-      return Left(defect instanceof Error ? defect : new Error(String(defect)))
+      const message = defect instanceof Error ? defect.message : String(defect)
+      return Left(new JoplinRequestError(redact(message, this.token), path))
     }
   }
 }

@@ -14,6 +14,7 @@ import {
   ReadNote,
   ReadNotebook,
   SearchNotes,
+  ToolError,
 } from "./lib/tools/index.js"
 
 export type JoplinServerConfig = {
@@ -87,7 +88,7 @@ export class JoplinServerManager {
           (e) => e,
           () => null as never,
         )
-        throw new Error(`Sidecar failed [${error.code}]: ${error.message}`)
+        throw new ToolError(`Sidecar failed [${error.code}]: ${error.message}`)
       }
       const retryAvailable = await this.apiClient.serviceAvailable()
       if (Either.isRight(retryAvailable)) {
@@ -97,7 +98,8 @@ export class JoplinServerManager {
       }
     }
 
-    throw new Error(
+    // A ToolError, because the agent can act on it: it is the user's setup, not a bug in this server.
+    throw new ToolError(
       `Joplin is not available at ${this.config.host}:${this.config.port}. ` +
         `Please ensure Joplin is running or configure a sidecar.`,
     )

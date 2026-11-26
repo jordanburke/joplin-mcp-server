@@ -25,6 +25,8 @@ export type HttpServerOptions = {
   port: number
   token: string
   httpPort?: number
+  /** The interface to listen on. Defaults to localhost; the Docker image passes 0.0.0.0. */
+  httpHost?: string
   endpoint?: string
 }
 
@@ -42,6 +44,8 @@ export function createHttpServer(options: HttpServerOptions): {
     name: "joplin",
     version: __VERSION__,
     enableIntrospection: false,
+    // A note created with an inline image_data_url can be several MB. 10 MiB matches what FastMCP accepted.
+    maxRequestBodySize: 10 * 1024 * 1024,
   })
 
   // Add list_notebooks tool
@@ -188,17 +192,17 @@ export async function startHttpServer(options: HttpServerOptions): Promise<void>
   process.stderr.write(`Configured for Joplin at ${options.host}:${options.port}\n`)
 
   const port = options.httpPort ?? 3000
+  const host = options.httpHost ?? "localhost"
   const endpoint = options.endpoint ?? "/mcp"
 
   await server.start({
     transportType: "httpStream",
     httpStream: {
-      // somamcp listens on localhost by default; every interface keeps Docker's port mapping working.
-      host: "0.0.0.0",
+      host,
       port,
       endpoint: endpoint as `/${string}`,
     },
   })
 
-  process.stderr.write(`somamcp server running on http://0.0.0.0:${port}${endpoint}\n`)
+  process.stderr.write(`somamcp server running on http://${host}:${port}${endpoint}\n`)
 }

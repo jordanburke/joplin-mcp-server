@@ -10,6 +10,7 @@ export type ParsedArgs = {
   remainingArgs: string[]
   transport: "stdio" | "http"
   httpPort: number
+  httpHost: string
   profileDir: string
   syncTarget: Option<SyncTarget>
   // A token passed explicitly via --token. Kept distinct from an ambient
@@ -277,6 +278,11 @@ function parseArgs(): ParsedArgs {
     })
     .getOrElse(() => 3000)
 
+  // Handle --http-host. Localhost by default: HTTP mode has no auth, so other machines must opt in.
+  const httpHost: string = extractArg(args, "--http-host")
+    .orElse(() => Option(process.env.JOPLIN_MCP_HTTP_HOST))
+    .getOrElse(() => "localhost")
+
   // Handle --profile
   const profileDir = extractArg(args, "--profile")
     .orElse(() => Option(process.env.JOPLIN_PROFILE))
@@ -335,6 +341,7 @@ function parseArgs(): ParsedArgs {
     remainingArgs: args,
     transport,
     httpPort,
+    httpHost,
     profileDir,
     syncTarget: resolvedSyncTarget,
     explicitToken,

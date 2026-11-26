@@ -19,7 +19,7 @@ import { startHttpServer } from "./server-http.js"
 
 // Parse command line arguments
 const parsedArgs = parseArgs()
-const { transport, httpPort, profileDir, syncTarget, explicitToken } = parsedArgs
+const { transport, httpPort, httpHost, profileDir, syncTarget, explicitToken } = parsedArgs
 
 const isHttpMode = transport === "http"
 
@@ -155,6 +155,7 @@ async function main(): Promise<void> {
       port,
       token: joplinToken,
       httpPort,
+      httpHost,
       endpoint: "/mcp",
     })
   } else {

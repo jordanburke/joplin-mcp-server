@@ -142,6 +142,18 @@ describe("JoplinAPIClient", () => {
       expect(pathOf(error)).not.toContain("test-token")
     })
 
+    it("should redact the token from a message fetch itself produces", async () => {
+      fetchMock.mockRejectedValue(
+        new TypeError("Failed to parse URL from http://::1:41184/notes?token=test-token: Invalid URL"),
+      )
+
+      const result = await client.get("/notes")
+
+      const message = leftOf(result).message
+      expect(message).not.toContain("test-token")
+      expect(message).toContain("token=<redacted>")
+    })
+
     it("should return Left with a timeout message when Joplin does not answer", async () => {
       vi.useFakeTimers()
       try {

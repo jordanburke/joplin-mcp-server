@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { ToolError } from "../../src/lib/tools/index.js"
 
-const manager = {
+const manager: Record<string, ReturnType<typeof vi.fn>> = {
   listNotebooks: vi.fn(),
   readNote: vi.fn(),
   searchNotes: vi.fn(),
@@ -88,6 +88,16 @@ describe("HTTP server (somamcp)", () => {
 
     expect(result.isError).toBe(true)
     expect(manager.readNote).not.toHaveBeenCalled()
+  })
+
+  it("accepts a request body over 4 MiB, such as a note with an inline image", async () => {
+    manager.createNote = vi.fn().mockResolvedValue("created")
+    const image = `data:image/png;base64,${"A".repeat(5 * 1024 * 1024)}`
+
+    const result = (await client.callTool({ name: "create_note", arguments: { image_data_url: image } })) as TextResult
+
+    expect(result.isError).toBeFalsy()
+    expect(manager.createNote).toHaveBeenCalled()
   })
 
   it("answers the public health probe", async () => {
