@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"
 import { Right, Left } from "functype"
+
+import { JoplinRequestError } from "../../src/lib/joplin-api-client.js"
 import JoplinAPIClient from "../../src/lib/joplin-api-client.js"
 import DeleteNote from "../../src/lib/tools/delete-note.js"
 import DeleteFolder from "../../src/lib/tools/delete-folder.js"
@@ -10,8 +12,10 @@ const mockApiClient = {
   delete: vi.fn(),
 }
 
-vi.mock("../../src/lib/joplin-api-client.js", function () {
+// Keep the module's real error helpers (statusOf, JoplinRequestError, ...); replace only the client.
+vi.mock("../../src/lib/joplin-api-client.js", async function (importOriginal) {
   return {
+    ...(await importOriginal<typeof import("../../src/lib/joplin-api-client.js")>()),
     default: vi.fn(function () {
       return mockApiClient
     }),
@@ -120,8 +124,7 @@ describe("Delete Tools", () => {
 
     it("should throw on 404 from delete", async () => {
       mockApiClient.get.mockResolvedValue(Right(mockNote))
-      const error = new Error("Not found")
-      ;(error as any).response = { status: 404 }
+      const error = new JoplinRequestError("Not found", "/test", 404)
       mockApiClient.delete.mockResolvedValue(Left(error))
 
       await expect(
@@ -254,8 +257,7 @@ describe("Delete Tools", () => {
         .mockResolvedValueOnce(Right(mockFolder))
         .mockResolvedValueOnce(Right({ items: [] }))
         .mockResolvedValueOnce(Right({ items: [] }))
-      const error = new Error("Conflict")
-      ;(error as any).response = { status: 409 }
+      const error = new JoplinRequestError("Conflict", "/test", 409)
       mockApiClient.delete.mockResolvedValue(Left(error))
 
       await expect(

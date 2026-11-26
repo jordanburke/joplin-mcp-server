@@ -1,3 +1,4 @@
+import { joplinErrorOf, statusOf } from "../joplin-api-client.js"
 import type { JoplinFolder } from "./base-tool.js"
 import BaseTool, { extractJoplinErrorMessage, ToolError } from "./base-tool.js"
 
@@ -92,20 +93,20 @@ class CreateFolder extends BaseTool {
     } catch (error: unknown) {
       if (error instanceof ToolError) throw error
 
-      const err = error as { response?: { status?: number; data?: { error?: string } } }
+      const httpStatus = statusOf(error)
       process.stderr.write(`creating notebook error: ${error}\n`)
-      if (err.response) {
-        if (err.response.status === 400) {
+      if (httpStatus !== undefined) {
+        if (httpStatus === 400) {
           throw new ToolError(
-            `Failed to create notebook: Invalid request data. ${err.response.data?.error ?? "Please check your input parameters."}`,
+            `Failed to create notebook: Invalid request data. ${joplinErrorOf(error) ?? "Please check your input parameters."}`,
           )
         }
-        if (err.response.status === 404 && options.parent_id !== undefined) {
+        if (httpStatus === 404 && options.parent_id !== undefined) {
           throw new ToolError(
             `Failed to create notebook: Parent notebook with ID "${options.parent_id}" not found. Use list_notebooks to see available notebooks and their IDs, or omit parent_id to create a top-level notebook.`,
           )
         }
-        if (err.response.status === 409) {
+        if (httpStatus === 409) {
           throw new ToolError(
             `Failed to create notebook: A notebook with the title "${options.title}" might already exist in this location. Try a different title or check existing notebooks with list_notebooks.`,
           )

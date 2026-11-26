@@ -1,5 +1,6 @@
 import { List } from "functype"
 
+import { statusOf } from "../joplin-api-client.js"
 import type { JoplinFolder, JoplinNote } from "./base-tool.js"
 import BaseTool from "./base-tool.js"
 
@@ -90,14 +91,14 @@ class ReadMultiNote extends BaseTool {
           }
         } catch (error: unknown) {
           process.stderr.write(`Error reading note ${noteId}: ${error}\n`)
-          const err = error as { response?: { status?: number }; message?: string }
-          if (err.response?.status === 404) {
+          const httpStatus = statusOf(error)
+          if (httpStatus === 404) {
             return { status: "notFound", noteId, lines: [heading, `Note with ID "${noteId}" not found.\n`] }
           }
           return {
             status: "error",
             noteId,
-            lines: [heading, `Error reading note: ${err.message ?? "Unknown error"}\n`],
+            lines: [heading, `Error reading note: ${error instanceof Error ? error.message : "Unknown error"}\n`],
           }
         }
       },

@@ -1,11 +1,12 @@
-import axios, { type AxiosResponse } from "axios"
-import type { Either } from "functype"
-import { Left, Right } from "functype"
+import type { Either, HttpError, HttpMethod, HttpResponse } from "functype"
+import { Http, Left, Right, TimeoutError } from "functype"
 
 type JoplinAPIClientConfig = {
   host?: string
   port?: number
   token: string
+  /** The fetch to send requests with. Defaults to the global fetch; tests pass a stub. */
+  fetch?: typeof globalThis.fetch
 }
 
 type JoplinAPIResponse<T = unknown> = {
@@ -13,130 +14,190 @@ type JoplinAPIResponse<T = unknown> = {
   has_more: boolean
 }
 
+type QueryParams = Record<string, string | number | boolean | undefined>
+
 type RequestOptions = {
-  query?: Record<string, unknown>
-  [key: string]: unknown
+  query?: QueryParams
+}
+
+const PING_TIMEOUT_MS = 5_000
+const REQUEST_TIMEOUT_MS = 30_000
+
+/**
+ * A failed request to the Joplin API. `path` is the API path requested, without its query string.
+ * `status` and `data` are set when Joplin answered with an error status: `data` is the parsed body,
+ * which for Joplin is usually `{ error: "..." }`.
+ *
+ * Neither the message nor `path` holds the full URL, because the API token travels in its query string.
+ * A message passed on from fetch itself can name the URL, so the token is redacted from it.
+ */
+class JoplinRequestError extends Error {
+  readonly path: string
+  readonly status: number | undefined
+  readonly data: unknown
+
+  constructor(message: string, path: string, status?: number, data?: unknown) {
+    super(message)
+    this.name = "JoplinRequestError"
+    this.path = path
+    this.status = status
+    this.data = data
+  }
+}
+
+/** The HTTP status Joplin answered a failed request with, if it answered at all. */
+const statusOf = (error: unknown): number | undefined =>
+  error instanceof JoplinRequestError ? error.status : undefined
+
+/** The API path of a failed request, without its query string. */
+const pathOf = (error: unknown): string | undefined => (error instanceof JoplinRequestError ? error.path : undefined)
+
+/** The `error` message from Joplin's body for a failed request, if it sent one. */
+const joplinErrorOf = (error: unknown): string | undefined => {
+  if (!(error instanceof JoplinRequestError)) return undefined
+  const { data } = error
+  if (data !== null && typeof data === "object" && "error" in data) {
+    const message = (data as { error: unknown }).error
+    if (typeof message === "string" && message.length > 0) return message
+  }
+  return undefined
+}
+
+const parseBody = (body: string): unknown => {
+  try {
+    return JSON.parse(body) as unknown
+  } catch {
+    return body
+  }
+}
+
+const causeMessage = (cause: unknown): string => {
+  if (!(cause instanceof Error)) return String(cause)
+  // Node's fetch fails with "fetch failed" and keeps the reason (e.g. ECONNREFUSED) in `cause`.
+  const inner = cause.cause instanceof Error ? `: ${cause.cause.message}` : ""
+  return `${cause.message}${inner}`
+}
+
+/** Blank out the token as written, and in both forms a URL encodes it into. */
+const redact = (message: string, token: string): string => {
+  if (token.length === 0) return message
+  // Replacing a form twice is harmless: after the first pass there is nothing left to match.
+  const forms = [token, encodeURIComponent(token), new URLSearchParams({ t: token }).toString().slice(2)]
+  return forms.reduce((text, form) => text.replaceAll(form, "<redacted>"), message)
+}
+
+const toRequestError = (
+  error: HttpError | TimeoutError,
+  path: string,
+  timeoutMs: number,
+  token: string,
+): JoplinRequestError => {
+  if (error instanceof TimeoutError) return new JoplinRequestError(`timeout of ${timeoutMs}ms exceeded`, path)
+  switch (error._tag) {
+    case "HttpStatusError":
+      return new JoplinRequestError(
+        `Request failed with status code ${error.status}`,
+        path,
+        error.status,
+        parseBody(error.body),
+      )
+    case "DecodeError":
+      return new JoplinRequestError(
+        `Joplin sent a response that could not be parsed: ${redact(causeMessage(error.cause), token)}`,
+        path,
+      )
+    case "NetworkError":
+      return new JoplinRequestError(redact(causeMessage(error.cause), token), path)
+  }
 }
 
 class JoplinAPIClient {
   private readonly baseURL: string
   private readonly token: string
+  private readonly http: ReturnType<typeof Http.client>
 
-  constructor({ host = "127.0.0.1", port = 41184, token }: JoplinAPIClientConfig) {
+  constructor({ host = "127.0.0.1", port = 41184, token, fetch }: JoplinAPIClientConfig) {
     this.baseURL = `http://${host}:${port}`
     this.token = token
+    this.http = Http.client({ baseUrl: this.baseURL, ...(fetch ? { fetch } : {}) })
   }
 
   async serviceAvailable(): Promise<Either<Error, true>> {
-    try {
-      const response: AxiosResponse<string> = await axios.get(`${this.baseURL}/ping`, { timeout: 5_000 })
-      if (response.status === 200 && response.data === "JoplinClipperServer") {
-        return Right(true as const)
-      }
-      return Left(new Error("Unexpected response from Joplin ping"))
-    } catch (error: unknown) {
-      return Left(error instanceof Error ? error : new Error(String(error)))
-    }
-  }
-
-  async getAllItems<T = unknown>(path: string, options: RequestOptions = {}): Promise<Either<Error, T[]>> {
-    const fetchPage = async (page: number, acc: T[]): Promise<T[]> => {
-      const result = await this.get<JoplinAPIResponse<T>>(path, this.mergeRequestOptions(options, { query: { page } }))
-      const response = result.fold(
-        (err) => {
-          throw err
-        },
-        (data) => data,
-      )
-      if (!Array.isArray(response.items)) {
-        throw new Error(`Unexpected response format from Joplin API for path: ${path}`)
-      }
-      const combined = [...acc, ...response.items]
-      return response.has_more ? fetchPage(page + 1, combined) : combined
-    }
-
-    try {
-      return Right(await fetchPage(1, []))
-    } catch (error: unknown) {
-      process.stderr.write(`Error in getAllItems for path ${path}: ${error}\n`)
-      return Left(error instanceof Error ? error : new Error(String(error)))
-    }
-  }
-
-  async get<T = unknown>(path: string, options: RequestOptions = {}): Promise<Either<Error, T>> {
-    try {
-      const { data }: AxiosResponse<T> = await axios.get(`${this.baseURL}${path}`, {
-        params: this.requestOptions(options).query,
-        timeout: 30_000,
-      })
-      return Right(data)
-    } catch (error: unknown) {
-      return Left(error instanceof Error ? error : new Error(String(error)))
-    }
-  }
-
-  async post<T = unknown>(path: string, body: unknown, options: RequestOptions = {}): Promise<Either<Error, T>> {
-    try {
-      const { data }: AxiosResponse<T> = await axios.post(`${this.baseURL}${path}`, body, {
-        params: this.requestOptions(options).query,
-        timeout: 30_000,
-      })
-      return Right(data)
-    } catch (error: unknown) {
-      return Left(error instanceof Error ? error : new Error(String(error)))
-    }
-  }
-
-  async delete<T = unknown>(path: string, options: RequestOptions = {}): Promise<Either<Error, T>> {
-    try {
-      const { data }: AxiosResponse<T> = await axios.delete(`${this.baseURL}${path}`, {
-        params: this.requestOptions(options).query,
-        timeout: 30_000,
-      })
-      return Right(data)
-    } catch (error: unknown) {
-      return Left(error instanceof Error ? error : new Error(String(error)))
-    }
-  }
-
-  async put<T = unknown>(path: string, body: unknown, options: RequestOptions = {}): Promise<Either<Error, T>> {
-    try {
-      const { data }: AxiosResponse<T> = await axios.put(`${this.baseURL}${path}`, body, {
-        params: this.requestOptions(options).query,
-        timeout: 30_000,
-      })
-      return Right(data)
-    } catch (error: unknown) {
-      return Left(error instanceof Error ? error : new Error(String(error)))
-    }
-  }
-
-  private requestOptions(options: RequestOptions = {}): RequestOptions {
-    return this.mergeRequestOptions(
-      {
-        query: { token: this.token },
-      },
-      options,
+    const result = await this.send<string>("GET", "/ping", { timeoutMs: PING_TIMEOUT_MS, withToken: false })
+    return result.flatMap((data) =>
+      data === "JoplinClipperServer"
+        ? Right<Error, true>(true)
+        : Left<Error, true>(new Error("Unexpected response from Joplin ping")),
     )
   }
 
-  private mergeRequestOptions(options1: RequestOptions, options2: RequestOptions): RequestOptions {
-    return {
-      query: {
-        ...(options1.query ?? {}),
-        ...(options2.query ?? {}),
-      },
-      ...this.except(options1, "query"),
-      ...this.except(options2, "query"),
+  async getAllItems<T = unknown>(path: string, options: RequestOptions = {}): Promise<Either<Error, T[]>> {
+    const fetchPage = async (page: number, acc: T[]): Promise<Either<Error, T[]>> => {
+      const result = await this.get<JoplinAPIResponse<T>>(path, { query: { ...options.query, page } })
+      return result
+        .flatMap((response) =>
+          Array.isArray(response.items)
+            ? Right<Error, JoplinAPIResponse<T>>(response)
+            : Left<Error, JoplinAPIResponse<T>>(
+                new Error(`Unexpected response format from Joplin API for path: ${path}`),
+              ),
+        )
+        .fold(
+          (error) => Promise.resolve(Left<Error, T[]>(error)),
+          (response) => {
+            const combined = [...acc, ...response.items]
+            return response.has_more ? fetchPage(page + 1, combined) : Promise.resolve(Right<Error, T[]>(combined))
+          },
+        )
     }
+
+    const result = await fetchPage(1, [])
+    if (result.isLeft()) process.stderr.write(`Error in getAllItems for path ${path}: ${result.value.message}\n`)
+    return result
   }
 
-  private except(obj: Record<string, unknown>, key: string): Record<string, unknown> {
-    const result = { ...obj }
-    delete result[key]
-    return result
+  get<T = unknown>(path: string, options: RequestOptions = {}): Promise<Either<Error, T>> {
+    return this.send<T>("GET", path, { query: options.query })
+  }
+
+  post<T = unknown>(path: string, body: unknown, options: RequestOptions = {}): Promise<Either<Error, T>> {
+    return this.send<T>("POST", path, { body, query: options.query })
+  }
+
+  delete<T = unknown>(path: string, options: RequestOptions = {}): Promise<Either<Error, T>> {
+    return this.send<T>("DELETE", path, { query: options.query })
+  }
+
+  put<T = unknown>(path: string, body: unknown, options: RequestOptions = {}): Promise<Either<Error, T>> {
+    return this.send<T>("PUT", path, { body, query: options.query })
+  }
+
+  private async send<T>(
+    method: HttpMethod,
+    path: string,
+    {
+      body,
+      query,
+      timeoutMs = REQUEST_TIMEOUT_MS,
+      withToken = true,
+    }: { body?: unknown; query?: QueryParams; timeoutMs?: number; withToken?: boolean },
+  ): Promise<Either<Error, T>> {
+    const params = withToken ? { ...query, token: this.token } : query
+    const request = this.http
+      .request<T>({ method, url: path, body, ...(params ? { params } : {}) })
+      .timeout(timeoutMs)
+      .map((response: HttpResponse<T>) => response.data)
+      .mapError((error) => toRequestError(error, path, timeoutMs, this.token))
+    try {
+      return await request.run()
+    } catch (defect: unknown) {
+      // run() rejects only on a defect, a bug rather than a failed request. Report it the same way.
+      const message = defect instanceof Error ? defect.message : String(defect)
+      return Left(new JoplinRequestError(redact(message, this.token), path))
+    }
   }
 }
 
 export default JoplinAPIClient
+export { joplinErrorOf, JoplinRequestError, pathOf, statusOf }
 export type { JoplinAPIClientConfig, JoplinAPIResponse, RequestOptions }

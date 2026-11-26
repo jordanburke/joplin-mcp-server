@@ -1,3 +1,4 @@
+import { statusOf } from "../joplin-api-client.js"
 import type { JoplinFolder } from "./base-tool.js"
 import BaseTool, { extractJoplinErrorMessage, ToolError } from "./base-tool.js"
 
@@ -173,20 +174,20 @@ class DeleteFolder extends BaseTool {
     } catch (error: unknown) {
       if (error instanceof ToolError) throw error
 
-      const err = error as { response?: { status?: number } }
+      const httpStatus = statusOf(error)
       process.stderr.write(`deleting folder error: ${error}\n`)
-      if (err.response) {
-        if (err.response.status === 404) {
+      if (httpStatus !== undefined) {
+        if (httpStatus === 404) {
           throw new ToolError(
             `Failed to delete folder: Folder with ID "${options.folder_id}" not found. Use list_notebooks to see available folders and their IDs.`,
           )
         }
-        if (err.response.status === 403) {
+        if (httpStatus === 403) {
           throw new ToolError(
             `Failed to delete folder: Permission denied for folder with ID "${options.folder_id}". This might be a protected system folder.`,
           )
         }
-        if (err.response.status === 409) {
+        if (httpStatus === 409) {
           throw new ToolError(
             `Failed to delete folder: It may contain items that prevent deletion. Try moving or deleting the contents first, or use force option.`,
           )

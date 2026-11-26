@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"
 import { Right, Left } from "functype"
+
+import { JoplinRequestError } from "../../src/lib/joplin-api-client.js"
 import JoplinAPIClient from "../../src/lib/joplin-api-client.js"
 import CreateNote from "../../src/lib/tools/create-note.js"
 import CreateFolder from "../../src/lib/tools/create-folder.js"
@@ -10,8 +12,10 @@ const mockApiClient = {
   get: vi.fn(),
 }
 
-vi.mock("../../src/lib/joplin-api-client.js", function () {
+// Keep the module's real error helpers (statusOf, JoplinRequestError, ...); replace only the client.
+vi.mock("../../src/lib/joplin-api-client.js", async function (importOriginal) {
   return {
+    ...(await importOriginal<typeof import("../../src/lib/joplin-api-client.js")>()),
     default: vi.fn(function () {
       return mockApiClient
     }),
@@ -146,8 +150,7 @@ describe("Create Tools", () => {
     })
 
     it("should throw with the parent notebook id when API returns 404", async () => {
-      const error = new Error("Not found")
-      ;(error as any).response = { status: 404 }
+      const error = new JoplinRequestError("Not found", "/test", 404)
       mockApiClient.post.mockResolvedValue(Left(error))
 
       await expect(
@@ -260,8 +263,7 @@ describe("Create Tools", () => {
     })
 
     it("should throw with the parent folder id when API returns 404", async () => {
-      const error = new Error("Not found")
-      ;(error as any).response = { status: 404 }
+      const error = new JoplinRequestError("Not found", "/test", 404)
       mockApiClient.post.mockResolvedValue(Left(error))
 
       await expect(
@@ -273,8 +275,7 @@ describe("Create Tools", () => {
     })
 
     it("should throw on 409 conflict", async () => {
-      const error = new Error("Conflict")
-      ;(error as any).response = { status: 409 }
+      const error = new JoplinRequestError("Conflict", "/test", 409)
       mockApiClient.post.mockResolvedValue(Left(error))
 
       await expect(

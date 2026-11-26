@@ -15,6 +15,7 @@ OPTIONS:
   --token <token>            Joplin API token
   --transport <type>         Transport type: stdio (default) or http
   --http-port <port>         HTTP server port (default: 3000, only with --transport http)
+  --http-host <host>         HTTP interface to listen on (default: localhost; env JOPLIN_MCP_HTTP_HOST)
   --profile <dir>            Joplin data directory (default: ~/.config/joplin-mcp)
   --sync-target <type>       Sync target: none, filesystem, webdav, nextcloud,
                              joplin-cloud, joplin-server, s3, dropbox, onedrive
@@ -82,7 +83,7 @@ EXAMPLES:
   joplin-mcp-server --token my_token \\
     --sync-target filesystem --sync-path /mnt/sync/joplin
 
-  # HTTP transport for web apps
+  # HTTP transport (Streamable HTTP on /mcp)
   joplin-mcp-server --token my_token --transport http --http-port 3000
 
   # External mode - connect to existing Joplin (e.g. Windows desktop from WSL)
