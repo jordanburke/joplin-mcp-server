@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"
 import { Right, Left } from "functype"
+
+import { JoplinRequestError } from "../../src/lib/joplin-api-client.js"
 import JoplinAPIClient from "../../src/lib/joplin-api-client.js"
 import EditNote from "../../src/lib/tools/edit-note.js"
 import EditFolder from "../../src/lib/tools/edit-folder.js"
@@ -10,8 +12,10 @@ const mockApiClient = {
   put: vi.fn(),
 }
 
-vi.mock("../../src/lib/joplin-api-client.js", function () {
+// Keep the module's real error helpers (statusOf, JoplinRequestError, ...); replace only the client.
+vi.mock("../../src/lib/joplin-api-client.js", async function (importOriginal) {
   return {
+    ...(await importOriginal<typeof import("../../src/lib/joplin-api-client.js")>()),
     default: vi.fn(function () {
       return mockApiClient
     }),
@@ -318,8 +322,7 @@ describe("Edit Tools", () => {
     })
 
     it("should throw on 409 conflict", async () => {
-      const error = new Error("Conflict")
-      ;(error as any).response = { status: 409 }
+      const error = new JoplinRequestError("Conflict", "/test", 409)
       mockApiClient.get.mockResolvedValue(Right(mockCurrentFolder))
       mockApiClient.put.mockResolvedValue(Left(error))
 

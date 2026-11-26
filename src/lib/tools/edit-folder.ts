@@ -1,3 +1,4 @@
+import { joplinErrorOf, pathOf, statusOf } from "../joplin-api-client.js"
 import type { JoplinFolder } from "./base-tool.js"
 import BaseTool, { extractJoplinErrorMessage, ToolError } from "./base-tool.js"
 
@@ -153,14 +154,11 @@ class EditFolder extends BaseTool {
     } catch (error: unknown) {
       if (error instanceof ToolError) throw error
 
-      const err = error as {
-        response?: { status?: number; data?: { error?: string } }
-        config?: { url?: string }
-      }
+      const httpStatus = statusOf(error)
       process.stderr.write(`updating folder error: ${error}\n`)
-      if (err.response) {
-        if (err.response.status === 404) {
-          if (err.config?.url?.includes(`/folders/${options.folder_id}`) === true) {
+      if (httpStatus !== undefined) {
+        if (httpStatus === 404) {
+          if (pathOf(error)?.includes(`/folders/${options.folder_id}`) === true) {
             throw new ToolError(
               `Failed to update folder: Folder with ID "${options.folder_id}" not found. Use list_notebooks to see available folders and their IDs.`,
             )
@@ -171,12 +169,12 @@ class EditFolder extends BaseTool {
             )
           }
         }
-        if (err.response.status === 400) {
+        if (httpStatus === 400) {
           throw new ToolError(
-            `Failed to update folder: Invalid request data. ${err.response.data?.error ?? "Please check your input parameters."}`,
+            `Failed to update folder: Invalid request data. ${joplinErrorOf(error) ?? "Please check your input parameters."}`,
           )
         }
-        if (err.response.status === 409) {
+        if (httpStatus === 409) {
           throw new ToolError(
             `Failed to update folder: A folder with the title "${options.title ?? ""}" might already exist in this location. Try a different title or check existing folders with list_notebooks.`,
           )

@@ -1,3 +1,4 @@
+import { statusOf } from "../joplin-api-client.js"
 import type { JoplinFolder, JoplinNote } from "./base-tool.js"
 import BaseTool, { extractJoplinErrorMessage, ToolError } from "./base-tool.js"
 
@@ -84,9 +85,9 @@ class ReadNotebook extends BaseTool {
     } catch (error: unknown) {
       if (error instanceof ToolError) throw error
 
-      const err = error as { response?: { status?: number } }
+      const httpStatus = statusOf(error)
       process.stderr.write(`reading notebook error: ${error}\n`)
-      if (err.response?.status === 404) {
+      if (httpStatus === 404) {
         throw new ToolError(
           `Notebook with ID "${notebookId}" not found. This might happen if the ID is incorrect, you're using a note title instead of a notebook ID, or the notebook has been deleted. Use list_notebooks to see all available notebooks with their IDs.`,
         )

@@ -85,7 +85,6 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",
-    "axios": "^1.21.1",
     "dotenv": "^18.0.10",
     "fastmcp": "^4.28.4",
     "functype": "^2.2.1",

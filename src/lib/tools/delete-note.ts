@@ -1,3 +1,4 @@
+import { statusOf } from "../joplin-api-client.js"
 import type { JoplinFolder, JoplinNote } from "./base-tool.js"
 import BaseTool, { extractJoplinErrorMessage, ToolError } from "./base-tool.js"
 
@@ -112,15 +113,15 @@ class DeleteNote extends BaseTool {
     } catch (error: unknown) {
       if (error instanceof ToolError) throw error
 
-      const err = error as { response?: { status?: number } }
+      const httpStatus = statusOf(error)
       process.stderr.write(`deleting note error: ${error}\n`)
-      if (err.response) {
-        if (err.response.status === 404) {
+      if (httpStatus !== undefined) {
+        if (httpStatus === 404) {
           throw new ToolError(
             `Failed to delete note: Note with ID "${options.note_id}" not found. Use search_notes to find notes and their IDs.`,
           )
         }
-        if (err.response.status === 403) {
+        if (httpStatus === 403) {
           throw new ToolError(
             `Failed to delete note: Permission denied for note with ID "${options.note_id}". This might be a protected system note.`,
           )

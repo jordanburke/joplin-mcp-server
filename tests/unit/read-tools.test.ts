@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"
 import { Right, Left } from "functype"
+
+import { JoplinRequestError } from "../../src/lib/joplin-api-client.js"
 import JoplinAPIClient from "../../src/lib/joplin-api-client.js"
 import ReadNote from "../../src/lib/tools/read-note.js"
 import ReadNotebook from "../../src/lib/tools/read-notebook.js"
@@ -8,8 +10,10 @@ const mockApiClient = {
   get: vi.fn(),
 }
 
-vi.mock("../../src/lib/joplin-api-client.js", function () {
+// Keep the module's real error helpers (statusOf, JoplinRequestError, ...); replace only the client.
+vi.mock("../../src/lib/joplin-api-client.js", async function (importOriginal) {
   return {
+    ...(await importOriginal<typeof import("../../src/lib/joplin-api-client.js")>()),
     default: vi.fn(function () {
       return mockApiClient
     }),
@@ -109,8 +113,7 @@ describe("Read Tools", () => {
     })
 
     it("should throw when API responds 404", async () => {
-      const error = new Error("Not found")
-      ;(error as any).response = { status: 404 }
+      const error = new JoplinRequestError("Not found", "/test", 404)
       mockApiClient.get.mockResolvedValueOnce(Left(error))
 
       await expect(readNotebook.call(VALID_ID)).rejects.toThrow(/Notebook with ID .* not found/)
@@ -202,8 +205,7 @@ describe("Read Tools", () => {
     })
 
     it("should throw when API responds 404", async () => {
-      const error = new Error("Not found")
-      ;(error as any).response = { status: 404 }
+      const error = new JoplinRequestError("Not found", "/test", 404)
       mockApiClient.get.mockResolvedValueOnce(Left(error))
 
       await expect(readNote.call(VALID_ID)).rejects.toThrow(/Note with ID .* not found/)

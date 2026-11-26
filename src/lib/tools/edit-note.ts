@@ -1,3 +1,4 @@
+import { joplinErrorOf, statusOf } from "../joplin-api-client.js"
 import type { JoplinFolder, JoplinNote } from "./base-tool.js"
 import BaseTool, { extractJoplinErrorMessage, ToolError } from "./base-tool.js"
 
@@ -176,22 +177,22 @@ class EditNote extends BaseTool {
     } catch (error: unknown) {
       if (error instanceof ToolError) throw error
 
-      const err = error as { response?: { status?: number; data?: { error?: string } } }
+      const httpStatus = statusOf(error)
       process.stderr.write(`updating note error: ${error}\n`)
-      if (err.response) {
-        if (err.response.status === 404 && options.parent_id !== undefined) {
+      if (httpStatus !== undefined) {
+        if (httpStatus === 404 && options.parent_id !== undefined) {
           throw new ToolError(
             `Failed to update note: Notebook with ID "${options.parent_id}" not found. Use list_notebooks to see available notebooks and their IDs.`,
           )
         }
-        if (err.response.status === 404) {
+        if (httpStatus === 404) {
           throw new ToolError(
             `Failed to update note: Note with ID "${options.note_id}" not found. Use search_notes to find notes and their IDs.`,
           )
         }
-        if (err.response.status === 400) {
+        if (httpStatus === 400) {
           throw new ToolError(
-            `Failed to update note: Invalid request data. ${err.response.data?.error ?? "Please check your input parameters."}`,
+            `Failed to update note: Invalid request data. ${joplinErrorOf(error) ?? "Please check your input parameters."}`,
           )
         }
       }

@@ -1,3 +1,4 @@
+import { joplinErrorOf, statusOf } from "../joplin-api-client.js"
 import type { JoplinFolder, JoplinNote } from "./base-tool.js"
 import BaseTool, { extractJoplinErrorMessage, ToolError } from "./base-tool.js"
 
@@ -102,15 +103,15 @@ class CreateNote extends BaseTool {
       // Re-throw ToolErrors as-is (already formatted for the caller)
       if (error instanceof ToolError) throw error
 
-      const err = error as { response?: { status?: number; data?: { error?: string } } }
+      const httpStatus = statusOf(error)
       process.stderr.write(`creating note error: ${error}\n`)
-      if (err.response) {
-        if (err.response.status === 400) {
+      if (httpStatus !== undefined) {
+        if (httpStatus === 400) {
           throw new ToolError(
-            `Failed to create note: Invalid request data. ${err.response.data?.error ?? "Please check your input parameters."}`,
+            `Failed to create note: Invalid request data. ${joplinErrorOf(error) ?? "Please check your input parameters."}`,
           )
         }
-        if (err.response.status === 404 && options.parent_id !== undefined) {
+        if (httpStatus === 404 && options.parent_id !== undefined) {
           throw new ToolError(
             `Failed to create note: Notebook with ID "${options.parent_id}" not found. Use list_notebooks to see available notebooks and their IDs.`,
           )
