@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** Node 22 or newer is required (was 18). The MCP SDK that somamcp builds on needs 20,
+  and CI tests 22 and 24.
+- HTTP mode runs on [somamcp](https://github.com/sapientsai/SomaMCP) instead of FastMCP. It still
+  serves `/mcp` on `--http-port` and listens on every interface. `/health` now answers
+  `{"name":"joplin","status":"running"}`. A tool error arrives as somamcp's JSON envelope
+  (`errorCategory: "execution"` plus the tool's message unchanged) instead of bare text. stdio is
+  unchanged.
+- Requests to Joplin go through functype's `Http` client instead of axios, with the same timeouts
+  and error messages.
+- Dependencies bumped, including functype 2.
+
 ### Added
 
 - `npm version` now propagates the new version into `server.json` and `manifest.json`

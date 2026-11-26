@@ -15,7 +15,7 @@ import parseArgs from "./lib/parse-args.js"
 import { externalTokenMissing, resolveTokenSource } from "./lib/resolve-token.js"
 import { ToolError } from "./lib/tools/index.js"
 import { initializeJoplinManager } from "./server-core.js"
-import { startFastMCPServer } from "./server-fastmcp.js"
+import { startHttpServer } from "./server-http.js"
 
 // Parse command line arguments
 const parsedArgs = parseArgs()
@@ -149,8 +149,8 @@ async function main(): Promise<void> {
   const { host, port, sidecar } = await setupConnection()
 
   if (isHttpMode) {
-    process.stderr.write("Starting HTTP transport mode with FastMCP...\n")
-    await startFastMCPServer({
+    process.stderr.write("Starting HTTP transport mode with somamcp...\n")
+    await startHttpServer({
       host,
       port,
       token: joplinToken,

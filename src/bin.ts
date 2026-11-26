@@ -25,7 +25,7 @@ if (args.includes("--help") || args.includes("-h")) {
 
 // Import and start server if not showing version/help
 async function main() {
-  // Import and run the main function from the FastMCP server
+  // Import and run the main function from the server entry point
   await import("./index.js")
 }
 

@@ -25,8 +25,8 @@ This is a TypeScript MCP (Model Context Protocol) server for Joplin note-taking 
 - **Main server** (`src/index.ts`): Entry point supporting stdio and HTTP transports
 - **Server Implementations**:
   - `src/server-core.ts`: Core MCP server with stdio transport
-  - `src/server-fastmcp.ts`: FastMCP HTTP server with health checks and stateless mode
-- **API Client** (`src/lib/joplin-api-client.ts`): HTTP client for Joplin REST API with pagination
+  - `src/server-http.ts`: somamcp HTTP server (Streamable HTTP, stateless, public `/health`)
+- **API Client** (`src/lib/joplin-api-client.ts`): functype `Http` client for the Joplin REST API with pagination; failures are a `JoplinRequestError` (read with `statusOf` / `joplinErrorOf` / `pathOf`)
 - **Tools** (`src/lib/tools/`): 11 Joplin tools following consistent BaseTool pattern
   - list-notebooks, search-notes, read-notebook, read-note, read-multinote
   - create-note, create-folder, edit-note, edit-folder, delete-note, delete-folder
