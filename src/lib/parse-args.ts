@@ -48,7 +48,7 @@ const resolveWslPath = (linuxPath: string, relativeToHome: string): string => {
       process.stderr.write(`[wsl] Path ${linuxPath} empty/missing, using Windows path: ${winPath}\n`)
       return winPath
     })
-    .orElse(linuxPath)
+    .getOrElse(() => linuxPath)
 }
 
 const expandPath = (p: string): string => {
@@ -104,7 +104,7 @@ export const buildSyncTarget = (args: {
   syncEndpoint: Option<string>
   syncForcePathStyle: Option<string>
 }): Either<string, SyncTarget> => {
-  const targetType = args.syncTarget.orElse("none")
+  const targetType = args.syncTarget.getOrElse(() => "none")
 
   switch (targetType) {
     case "none":
@@ -169,8 +169,8 @@ export const buildSyncTarget = (args: {
       )
 
     case "s3": {
-      const region = args.syncRegion.orElse(DEFAULT_S3_REGION)
-      const url = args.syncEndpoint.orElse(DEFAULT_S3_ENDPOINT)
+      const region = args.syncRegion.getOrElse(() => DEFAULT_S3_REGION)
+      const url = args.syncEndpoint.getOrElse(() => DEFAULT_S3_ENDPOINT)
 
       if (!isValidUrl(url)) return Left(`--sync-endpoint must be a valid URL (got: ${url})`)
 
@@ -263,7 +263,7 @@ function parseArgs(): ParsedArgs {
       }
       return value
     })
-    .orElse("stdio")
+    .getOrElse(() => "stdio")
 
   // Handle --http-port
   const httpPort: number = extractArg(args, "--http-port")
@@ -275,24 +275,24 @@ function parseArgs(): ParsedArgs {
       }
       return parsed
     })
-    .orElse(3000)
+    .getOrElse(() => 3000)
 
   // Handle --profile
   const profileDir = extractArg(args, "--profile")
-    .or(Option(process.env.JOPLIN_PROFILE))
+    .orElse(() => Option(process.env.JOPLIN_PROFILE))
     .map(expandPath)
-    .orElse(expandPath("~/.config/joplin-mcp"))
+    .getOrElse(() => expandPath("~/.config/joplin-mcp"))
 
   // Handle sync args. --sync-path stays unexpanded here: only the filesystem
   // target is a real path. Expanding a WebDAV URL or an S3 bucket name would
   // rewrite any $var it contains to the empty string.
-  const syncTarget = extractArg(args, "--sync-target").or(Option(process.env.JOPLIN_SYNC_TARGET))
-  const syncPath = extractArg(args, "--sync-path").or(Option(process.env.JOPLIN_SYNC_PATH))
-  const syncUsername = extractArg(args, "--sync-username").or(Option(process.env.JOPLIN_SYNC_USERNAME))
-  const syncPassword = extractArg(args, "--sync-password").or(Option(process.env.JOPLIN_SYNC_PASSWORD))
-  const syncRegion = extractArg(args, "--sync-region").or(Option(process.env.JOPLIN_SYNC_REGION))
-  const syncEndpoint = extractArg(args, "--sync-endpoint").or(Option(process.env.JOPLIN_SYNC_ENDPOINT))
-  const syncForcePathStyle = extractArg(args, "--sync-force-path-style").or(
+  const syncTarget = extractArg(args, "--sync-target").orElse(() => Option(process.env.JOPLIN_SYNC_TARGET))
+  const syncPath = extractArg(args, "--sync-path").orElse(() => Option(process.env.JOPLIN_SYNC_PATH))
+  const syncUsername = extractArg(args, "--sync-username").orElse(() => Option(process.env.JOPLIN_SYNC_USERNAME))
+  const syncPassword = extractArg(args, "--sync-password").orElse(() => Option(process.env.JOPLIN_SYNC_PASSWORD))
+  const syncRegion = extractArg(args, "--sync-region").orElse(() => Option(process.env.JOPLIN_SYNC_REGION))
+  const syncEndpoint = extractArg(args, "--sync-endpoint").orElse(() => Option(process.env.JOPLIN_SYNC_ENDPOINT))
+  const syncForcePathStyle = extractArg(args, "--sync-force-path-style").orElse(() =>
     Option(process.env.JOPLIN_SYNC_FORCE_PATH_STYLE),
   )
 

@@ -17,7 +17,7 @@ export default defineConfig({
   dts: true,
   sourcemap: isProduction,
   clean: true,
-  target: "node16",
+  target: "node22",
   outDir: "dist",
   platform: "node",
   treeshake: true,

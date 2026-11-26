@@ -7,6 +7,13 @@ export default [
     files: ["src/**/*.ts"],
     rules: {
       "@typescript-eslint/no-explicit-any": "warn",
+      // ts-builds 5 raised these functype style rules to errors. The tools predate them, so they stay
+      // warnings until the tools are rewritten in the functype style, which is a change of its own.
+      "functype/no-array-mutation": "warn",
+      "functype/prefer-either": "warn",
+      "functype/prefer-list": "warn",
+      "functype/prefer-option": "warn",
+      "functype/prefer-try": "warn",
     },
   },
   {

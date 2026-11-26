@@ -352,7 +352,7 @@ export const buildSettingsRecord = (config: SidecarConfig): Record<string, strin
     "api.port": String(config.apiPort),
   }
 
-  const syncTarget = Option(config.syncTarget).orElse({ type: "none" } as SyncTarget)
+  const syncTarget = Option(config.syncTarget).getOrElse((): SyncTarget => ({ type: "none" }))
   settings["sync.target"] = String(syncTargetId(syncTarget))
 
   if (syncTarget.type === "filesystem") {
@@ -384,7 +384,7 @@ export const buildSettingsRecord = (config: SidecarConfig): Record<string, strin
     settings["sync.10.password"] = syncTarget.password
   }
 
-  const interval = Option(config.syncInterval).orElse(300)
+  const interval = Option(config.syncInterval).getOrElse(() => 300)
   settings["sync.interval"] = String(interval)
 
   return settings

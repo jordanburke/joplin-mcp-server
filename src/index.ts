@@ -135,7 +135,7 @@ async function setupConnection(): Promise<{ host: string; port: number; sidecar:
 
   // Cleanup on exit
   const cleanup = async () => {
-    await sidecar.stop()
+    void (await sidecar.stop())
     process.exit(0)
   }
   process.on("SIGINT", () => void cleanup())
