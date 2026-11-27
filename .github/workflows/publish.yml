@@ -27,7 +27,9 @@ jobs:
         with:
           # Node 24 ships npm 11.5.1+, which fixes the OIDC trusted-publishing
           # handshake bug present in Node 22's npm 10.x (npm/cli#8976).
-          node-version: "24.x"
+          # Pinned exactly: the bundled npm decides whether OIDC works, and 24.19.0's npm 11.17.0
+          # failed with E401 where 24.20.0's npm 11.19.0 published. A release can't be retried.
+          node-version: "24.20.0"
           registry-url: "https://registry.npmjs.org"
 
       - name: Install system dependencies
