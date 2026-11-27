@@ -76,7 +76,30 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Authenticates with the same id-token permission npm provenance uses.
+      # The MCP registry checks that the version exists on npm, and npm can take minutes to serve a
+      # new one (about four for 2.4.0), so registering straight after publish fails. Waiting for the
+      # tarball as well also catches a publish that left the version staged without one.
+      - name: Wait for npm to serve the new version
+        run: |
+          name=$(node -p "require('./package.json').name")
+          version=$(node -p "require('./package.json').version")
+          meta="https://registry.npmjs.org/${name}/${version}"
+          tarball="https://registry.npmjs.org/${name}/-/${name}-${version}.tgz"
+          for attempt in $(seq 1 60); do
+            meta_status=$(curl -s -o /dev/null -w "%{http_code}" "$meta")
+            tarball_status=$(curl -s -o /dev/null -w "%{http_code}" -I "$tarball")
+            if [ "$meta_status" = "200" ] && [ "$tarball_status" = "200" ]; then
+              echo "npm serves ${name}@${version} (attempt ${attempt})"
+              exit 0
+            fi
+            echo "attempt ${attempt}: metadata ${meta_status}, tarball ${tarball_status}; waiting 15s"
+            sleep 15
+          done
+          echo "::error::npm did not serve ${name}@${version} within 15 minutes"
+          exit 1
+
+      # Authenticates with the same id-token permission npm provenance uses. After the wait, so the
+      # registry's short-lived token is fresh when it publishes.
       - name: Login to MCP Registry
         run: ./mcp-publisher login github-oidc
 
