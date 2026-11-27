@@ -84,13 +84,23 @@ jobs:
           name=$(node -p "require('./package.json').name")
           version=$(node -p "require('./package.json').version")
           meta="https://registry.npmjs.org/${name}/${version}"
-          tarball="https://registry.npmjs.org/${name}/-/${name}-${version}.tgz"
+          # A scoped package's file is named without its scope: @scope/pkg/-/pkg-1.0.0.tgz.
+          tarball="https://registry.npmjs.org/${name}/-/${name##*/}-${version}.tgz"
+          # Any curl failure (DNS, reset, timeout) reads as 000 and keeps the loop waiting. Without
+          # `|| true`, bash -e would end the step after npm publish, and a rerun can't republish.
+          status() { curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$@" || true; }
           for attempt in $(seq 1 60); do
-            meta_status=$(curl -s -o /dev/null -w "%{http_code}" "$meta")
-            tarball_status=$(curl -s -o /dev/null -w "%{http_code}" -I "$tarball")
-            if [ "$meta_status" = "200" ] && [ "$tarball_status" = "200" ]; then
-              echo "npm serves ${name}@${version} (attempt ${attempt})"
-              exit 0
+            # Accept matches what the registry sends, so both read the same cached variant.
+            meta_status=$(status -H "Accept: application/json" "$meta")
+            # Ask for the tarball only once the metadata answers: npm's CDN caches a tarball 404
+            # for five minutes, so probing too early would hold the loop that long.
+            tarball_status="-"
+            if [ "$meta_status" = "200" ]; then
+              tarball_status=$(status -I "$tarball")
+              if [ "$tarball_status" = "200" ]; then
+                echo "npm serves ${name}@${version} (attempt ${attempt})"
+                exit 0
+              fi
             fi
             echo "attempt ${attempt}: metadata ${meta_status}, tarball ${tarball_status}; waiting 15s"
             sleep 15
