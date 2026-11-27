@@ -7,9 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-11-26
+
 ### Changed
 
-- **Breaking:** Node 22 or newer is required (was 18). The MCP SDK that somamcp builds on needs 20,
+- Node 22 or newer is now required (was 18). The MCP SDK that somamcp builds on needs 20,
   and CI tests 22 and 24.
 - Both transports run on [somamcp](https://github.com/sapientsai/SomaMCP), from one tool registry.
   stdio no longer uses the MCP SDK directly, and HTTP no longer uses FastMCP. The server reports
@@ -145,7 +147,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Earlier releases predate this changelog; see the
 [release history](https://github.com/jordanburke/joplin-mcp-server/releases) for details.
 
-[unreleased]: https://github.com/jordanburke/joplin-mcp-server/compare/v2.3.3...HEAD
+[unreleased]: https://github.com/jordanburke/joplin-mcp-server/compare/v2.4.0...HEAD
+[2.4.0]: https://github.com/jordanburke/joplin-mcp-server/compare/v2.3.3...v2.4.0
 [2.3.3]: https://github.com/jordanburke/joplin-mcp-server/compare/v2.3.2...v2.3.3
 [2.3.2]: https://github.com/jordanburke/joplin-mcp-server/compare/v2.3.1...v2.3.2
 [2.3.1]: https://github.com/jordanburke/joplin-mcp-server/compare/v2.3.0...v2.3.1

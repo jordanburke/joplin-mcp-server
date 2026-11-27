@@ -14,6 +14,7 @@
 import fs from "fs"
 import path from "path"
 import { fileURLToPath } from "url"
+import { isDeepStrictEqual } from "util"
 
 type PackageJson = {
   version: string
@@ -35,10 +36,23 @@ const readJSON = <T>(file: string): T | null => {
   return fs.existsSync(full) ? (JSON.parse(fs.readFileSync(full, "utf-8")) as T) : null
 }
 
-// Prettier formats JSON at two spaces with a trailing newline; match it so a
-// sync never shows up as a formatting diff.
-const writeJSON = (file: string, data: unknown): void => {
-  fs.writeFileSync(path.join(ROOT, file), `${JSON.stringify(data, null, 2)}\n`)
+const VERSION_FIELD = /("version"\s*:\s*)"[^"]*"/g
+
+/**
+ * Write `expected` by replacing the `"version"` values in the file's own text, rather than
+ * re-serialising it. JSON.stringify would expand the arrays Prettier keeps inline and unescape
+ * characters, so the version commit would fail format:check. The result is parsed back and must
+ * equal `expected`, so a "version" key this script doesn't own can't change unnoticed.
+ */
+const writeVersions = (file: string, version: string, expected: unknown): void => {
+  const full = path.join(ROOT, file)
+  const text = fs.readFileSync(full, "utf-8")
+  const updated = text.replace(VERSION_FIELD, (_match, key: string) => `${key}"${version}"`)
+  if (!isDeepStrictEqual(JSON.parse(updated), expected)) {
+    console.error(`${file}: replacing its "version" values changed more than the fields this script syncs`)
+    process.exit(1)
+  }
+  fs.writeFileSync(full, updated)
 }
 
 const main = (): void => {
@@ -58,14 +72,14 @@ const main = (): void => {
     server.packages?.forEach((entry) => {
       entry.version = version
     })
-    writeJSON("server.json", server)
+    writeVersions("server.json", version, server)
     synced.push(`server.json (${1 + (server.packages?.length ?? 0)} fields)`)
   }
 
   const manifest = readJSON<ManifestJson>("manifest.json")
   if (manifest) {
     manifest.version = version
-    writeJSON("manifest.json", manifest)
+    writeVersions("manifest.json", version, manifest)
     synced.push("manifest.json")
   }
 
